@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QA-UI - Dataset Question Answering</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="logo-icon">🧠</span>
+                    QA-UI
+                </h1>
+                <p class="subtitle">Ask questions about your datasets using AI</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dataset Selection -->
+            <div class="card dataset-card">
+                <h2 class="card-title">
+                    <span class="card-icon">📊</span>
+                    Select Dataset
+                </h2>
+                <div class="dataset-grid">
+                    {% for dataset in datasets %}
+                    <div class="dataset-item" data-dataset="{{ dataset }}">
+                        <div class="dataset-name">{{ dataset }}</div>
+                        <div class="dataset-info">
+                            <span class="info-loading">Loading info...</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Question Input -->
+            <div class="card question-card">
+                <h2 class="card-title">
+                    <span class="card-icon">❓</span>
+                    Ask Your Question
+                </h2>
+                <form id="questionForm" class="question-form">
+                    <div class="input-group">
+                        <label for="selectedDataset" class="input-label">Selected Dataset:</label>
+                        <input type="text" id="selectedDataset" class="input-field" readonly placeholder="Select a dataset first">
+                    </div>
+                    <div class="input-group">
+                        <label for="question" class="input-label">Your Question:</label>
+                        <textarea id="question" class="input-field textarea" 
+                                  placeholder="e.g., How many unique values are in the name column?" 
+                                  rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn" disabled>
+                        <span class="btn-text">Ask Question</span>
+                        <div class="btn-spinner" style="display: none;">
+                            <div class="spinner"></div>
+                        </div>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results -->
+            <div class="card results-card" id="resultsCard" style="display: none;">
+                <h2 class="card-title">
+                    <span class="card-icon">💡</span>
+                    Answer
+                </h2>
+                <div class="results-content">
+                    <div class="answer-section">
+                        <h3>Result:</h3>
+                        <div class="answer-box" id="answerBox"></div>
+                    </div>
+                    <div class="code-section">
+                        <h3>Generated Code:</h3>
+                        <pre class="code-box" id="codeBox"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Display -->
+            <div class="card error-card" id="errorCard" style="display: none;">
+                <h2 class="card-title">
+                    <span class="card-icon">⚠️</span>
+                    Error
+                </h2>
+                <div class="error-content" id="errorContent"></div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 QA-UI - Powered by AI</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html> 
