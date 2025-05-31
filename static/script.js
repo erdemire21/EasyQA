@@ -281,19 +281,7 @@ datasetItems.forEach(item => {
 if (navigator.clipboard) {
     const copyButton = document.createElement('button');
     copyButton.innerHTML = '📋 Copy Code';
-    copyButton.style.cssText = `
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: rgba(255, 255, 255, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        color: white;
-        padding: 5px 10px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 0.8rem;
-        display: none;
-    `;
+    copyButton.className = 'copy-button';
     
     // Add copy functionality when results are shown
     const originalShowResults = showResults;

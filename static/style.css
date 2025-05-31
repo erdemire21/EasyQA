@@ -27,6 +27,7 @@ body {
     text-align: center;
     margin-bottom: 40px;
     padding: 40px 0;
+    width: 100%;
 }
 
 .header-content {
@@ -36,31 +37,42 @@ body {
     padding: 30px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.3);
+    margin: 0 auto;
+    max-width: 100%;
 }
 
 .logo {
     font-size: 3rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
     margin-bottom: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 15px;
+    text-align: center;
+    width: 100%;
+}
+
+.logo-text {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .logo-icon {
     font-size: 3rem;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    color: #667eea;
+    -webkit-text-fill-color: #667eea;
 }
 
 .subtitle {
     font-size: 1.2rem;
     color: #6b7280;
     font-weight: 400;
+    text-align: center;
+    width: 100%;
 }
 
 /* Card Styles */
@@ -322,12 +334,27 @@ body {
     .header {
         margin-bottom: 30px;
         padding: 20px 0;
+        text-align: center;
+        width: 100%;
+    }
+    
+    .header-content {
+        margin: 0 auto;
+        max-width: 100%;
     }
     
     .logo {
         font-size: 2.5rem;
         flex-direction: column;
         gap: 10px;
+        text-align: center;
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .logo-text {
+        font-size: 2.5rem;
     }
     
     .logo-icon {
@@ -336,6 +363,8 @@ body {
     
     .subtitle {
         font-size: 1.1rem;
+        text-align: center;
+        width: 100%;
     }
     
     .card {
@@ -364,10 +393,23 @@ body {
 @media (max-width: 480px) {
     .logo {
         font-size: 2rem;
+        text-align: center;
+        width: 100%;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .logo-text {
+        font-size: 2rem;
     }
     
     .logo-icon {
         font-size: 2rem;
+    }
+    
+    .subtitle {
+        text-align: center;
+        width: 100%;
     }
     
     .card {
@@ -421,4 +463,39 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.5);
+}
+
+/* Copy Button Styles */
+.copy-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white !important;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    display: none;
+    -webkit-text-fill-color: white !important;
+    text-fill-color: white !important;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+}
+
+.copy-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-1px);
+}
+
+.copy-button:active {
+    transform: translateY(0);
+}
+
+/* Ensure emojis in buttons are visible */
+button, .copy-button {
+    color: inherit !important;
+    -webkit-text-fill-color: inherit !important;
 } 
