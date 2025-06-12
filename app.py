@@ -378,6 +378,34 @@ async def upload_dataset(file: UploadFile = File(...), dataset_name: str = Form(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing dataset: {str(e)}")
 
+@app.delete("/api/delete-dataset/{dataset_name}")
+async def delete_dataset(dataset_name: str):
+    """Delete a dataset file."""
+    try:
+        # Check if dataset exists
+        datasets_path = "datasets"
+        supported_extensions = ['.parquet', '.csv', '.json', '.xlsx']
+        dataset_file = None
+        
+        for ext in supported_extensions:
+            potential_file = f"{datasets_path}/{dataset_name}{ext}"
+            if os.path.exists(potential_file):
+                dataset_file = potential_file
+                break
+        
+        if not dataset_file:
+            raise HTTPException(status_code=404, detail=f"Dataset '{dataset_name}' not found")
+        
+        # Delete the file
+        os.remove(dataset_file)
+        
+        return {"success": True, "message": f"Dataset '{dataset_name}' deleted successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting dataset: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 

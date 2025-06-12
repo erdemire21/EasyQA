@@ -83,6 +83,26 @@ function updateDatasetInfo(itemElement, info) {
             ${info.column_names.slice(0, 3).join(', ')}${info.column_names.length > 3 ? '...' : ''}
         </div>
     `;
+    
+    // Add delete button if not already present
+    if (!itemElement.querySelector('.dataset-actions')) {
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'dataset-actions';
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'dataset-delete';
+        deleteBtn.title = 'Delete dataset';
+        deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        
+        // Add click handler for delete button
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent dataset selection when clicking delete
+            showDeleteConfirmation(itemElement.dataset.dataset);
+        });
+        
+        actionsDiv.appendChild(deleteBtn);
+        itemElement.appendChild(actionsDiv);
+    }
 }
 
 // Select a dataset
@@ -705,10 +725,22 @@ async function updateDatasetsList(datasetInfo) {
                     ${datasetInfo.column_names.slice(0, 3).join(', ')}${datasetInfo.column_names.length > 3 ? '...' : ''}
                 </div>
             </div>
+            <div class="dataset-actions">
+                <button class="dataset-delete" title="Delete dataset">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
         `;
         
         // Add click handler to the new dataset item
         newDatasetItem.addEventListener('click', () => selectDataset(datasetInfo.dataset_name, newDatasetItem));
+        
+        // Add delete button click handler
+        const deleteBtn = newDatasetItem.querySelector('.dataset-delete');
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent dataset selection when clicking delete
+            showDeleteConfirmation(datasetInfo.dataset_name);
+        });
         
         // Add the new dataset item to the grid
         datasetGrid.prepend(newDatasetItem);
@@ -742,4 +774,117 @@ function resetUploadArea() {
     
     // Re-attach event listener to new file input
     document.getElementById('fileUpload').addEventListener('change', handleFileSelect);
+}
+
+// Show delete confirmation modal
+function showDeleteConfirmation(datasetName) {
+    // Create confirmation modal
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal';
+    modal.id = 'confirmModal';
+    
+    modal.innerHTML = `
+        <div class="confirm-content">
+            <div class="confirm-header">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Delete Dataset</h3>
+            </div>
+            <div class="confirm-message">
+                Are you sure you want to delete the dataset <strong>${datasetName}</strong>? This action cannot be undone.
+            </div>
+            <div class="confirm-actions">
+                <button class="confirm-cancel" id="cancelDelete">Cancel</button>
+                <button class="confirm-delete" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Show the modal with animation
+    setTimeout(() => {
+        modal.classList.add('active');
+    }, 10);
+    
+    // Add event listeners
+    const cancelBtn = document.getElementById('cancelDelete');
+    const confirmBtn = document.getElementById('confirmDelete');
+    
+    cancelBtn.addEventListener('click', () => {
+        closeConfirmModal(modal);
+    });
+    
+    confirmBtn.addEventListener('click', () => {
+        closeConfirmModal(modal);
+        deleteDataset(datasetName);
+    });
+}
+
+// Close confirmation modal
+function closeConfirmModal(modal) {
+    modal.classList.remove('active');
+    
+    // Remove modal after animation
+    setTimeout(() => {
+        document.body.removeChild(modal);
+    }, 300);
+}
+
+// Delete dataset
+async function deleteDataset(datasetName) {
+    try {
+        // Show loading state
+        const datasetItem = Array.from(document.querySelectorAll('.dataset-item')).find(
+            item => item.dataset.dataset === datasetName
+        );
+        
+        if (datasetItem) {
+            datasetItem.style.opacity = '0.5';
+            datasetItem.style.pointerEvents = 'none';
+        }
+        
+        // Call API to delete the dataset
+        const response = await fetch(`/api/delete-dataset/${datasetName}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        }
+        
+        // Remove dataset from UI
+        if (datasetItem) {
+            datasetItem.addEventListener('transitionend', () => {
+                datasetItem.remove();
+                
+                // Clear selection if this was the selected dataset
+                if (selectedDataset === datasetName) {
+                    selectedDataset = null;
+                    selectedDatasetInput.value = '';
+                    updateSubmitButton();
+                }
+            });
+            
+            datasetItem.style.transform = 'scale(0.8)';
+            datasetItem.style.opacity = '0';
+        }
+        
+        // Show success message
+        showSuccess(`Dataset '${datasetName}' deleted successfully!`);
+        
+    } catch (error) {
+        console.error('Error deleting dataset:', error);
+        showError(`Failed to delete dataset: ${error.message}`);
+        
+        // Reset the dataset item if it exists
+        const datasetItem = Array.from(document.querySelectorAll('.dataset-item')).find(
+            item => item.dataset.dataset === datasetName
+        );
+        
+        if (datasetItem) {
+            datasetItem.style.opacity = '';
+            datasetItem.style.pointerEvents = '';
+        }
+    }
 } 
