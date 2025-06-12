@@ -16,6 +16,10 @@ const answerBox = document.getElementById('answerBox');
 const codeBox = document.getElementById('codeBox');
 const errorContent = document.getElementById('errorContent');
 
+// File upload elements
+const uploadArea = document.getElementById('datasetUploadArea');
+const fileInput = document.getElementById('fileUpload');
+
 // Settings elements
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
@@ -28,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeForm();
     initializeSettings();
     initializeCodeToggle();
+    initializeFileUpload();
 });
 
 // Initialize dataset functionality
@@ -82,8 +87,8 @@ function updateDatasetInfo(itemElement, info) {
 
 // Select a dataset
 function selectDataset(datasetName, itemElement) {
-    // Remove previous selection
-    datasetItems.forEach(item => item.classList.remove('selected'));
+    // Remove previous selection from all dataset items (including dynamically added ones)
+    document.querySelectorAll('.dataset-item').forEach(item => item.classList.remove('selected'));
     
     // Add selection to clicked item
     itemElement.classList.add('selected');
@@ -418,21 +423,323 @@ function initializeCodeToggle() {
     }
 }
 
-// Show success message
+// Show success
 function showSuccess(message) {
-    const successCard = document.createElement('div');
-    successCard.className = 'card success-card';
-    successCard.innerHTML = `
-        <div class="success-content">
-            <i class="fas fa-check-circle"></i>
-            ${message}
+    hideResultsAndErrors();
+    
+    // Create success card if it doesn't exist
+    let successCard = document.getElementById('successCard');
+    if (!successCard) {
+        successCard = document.createElement('div');
+        successCard.id = 'successCard';
+        successCard.className = 'card success-card';
+        successCard.innerHTML = `
+            <h2 class="card-title">
+                <span class="card-icon">✅</span>
+                Success
+            </h2>
+            <div class="success-content" id="successContent"></div>
+        `;
+        document.querySelector('.main-content').appendChild(successCard);
+    }
+    
+    // Update success content
+    const successContent = document.getElementById('successContent');
+    successContent.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
+    
+    // Show success card
+    successCard.style.display = 'block';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        successCard.style.display = 'none';
+    }, 3000);
+}
+
+// Initialize file upload functionality
+function initializeFileUpload() {
+    if (!uploadArea || !fileInput) return;
+    
+    // Handle file selection via button
+    fileInput.addEventListener('change', handleFileSelect);
+    
+    // Handle drag and drop events
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('dragover');
+        
+        if (e.dataTransfer.files.length) {
+            handleFiles(e.dataTransfer.files);
+        }
+    });
+    
+    // Handle click on the Browse Files button only, not the entire upload area
+    const uploadBtn = uploadArea.querySelector('.upload-btn');
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.click();
+        });
+    }
+}
+
+// Handle file selection
+function handleFileSelect(e) {
+    if (e.target.files.length) {
+        handleFiles(e.target.files);
+    }
+}
+
+// Process selected files
+function handleFiles(files) {
+    const file = files[0]; // Only process the first file
+    
+    // Check file extension
+    const fileName = file.name;
+    const fileExtension = fileName.split('.').pop().toLowerCase();
+    const supportedExtensions = ['parquet', 'csv', 'json', 'xlsx'];
+    
+    if (!supportedExtensions.includes(fileExtension)) {
+        showError(`Unsupported file format: .${fileExtension}. Supported formats: ${supportedExtensions.join(', ')}`);
+        return;
+    }
+    
+    // Get dataset name (without extension)
+    let datasetName = fileName.split('.')[0];
+    
+    // Check for existing datasets with the same name
+    const existingDatasets = Array.from(document.querySelectorAll('.dataset-item')).map(
+        item => item.dataset.dataset
+    );
+    
+    if (existingDatasets.includes(datasetName)) {
+        promptForDatasetName(file, datasetName, existingDatasets);
+        return;
+    }
+    
+    // Proceed with upload
+    uploadFileWithName(file, datasetName);
+}
+
+// Prompt user for a custom dataset name
+function promptForDatasetName(file, suggestedName, existingDatasets) {
+    // Reset upload area first
+    resetUploadArea();
+    
+    // Create a modal for dataset name input
+    const modal = document.createElement('div');
+    modal.className = 'settings-modal active';
+    modal.id = 'nameModal';
+    
+    modal.innerHTML = `
+        <div class="settings-content">
+            <div class="settings-header">
+                <h2><i class="fas fa-edit"></i> Rename Dataset</h2>
+                <button class="close-settings" id="closeNameModal"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="nameForm" class="settings-form">
+                <p>A dataset with the name "${suggestedName}" already exists.</p>
+                <div class="input-group">
+                    <label for="customName">Enter a new name for your dataset:</label>
+                    <input type="text" id="customName" class="input-field" value="${suggestedName}_new" required>
+                    <div id="nameError" class="error-message" style="display: none; color: #ef4444; font-size: 0.85rem; margin-top: 5px;"></div>
+                </div>
+                <button type="submit" class="submit-btn">
+                    <span class="btn-text">Upload Dataset</span>
+                </button>
+            </form>
         </div>
     `;
     
-    document.querySelector('.container').appendChild(successCard);
+    document.body.appendChild(modal);
     
-    // Remove after 3 seconds
-    setTimeout(() => {
-        successCard.remove();
-    }, 3000);
+    // Add event listeners
+    const nameForm = document.getElementById('nameForm');
+    const customNameInput = document.getElementById('customName');
+    const nameError = document.getElementById('nameError');
+    const closeBtn = document.getElementById('closeNameModal');
+    
+    // Focus on input
+    customNameInput.focus();
+    customNameInput.select();
+    
+    // Close modal handler
+    closeBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    
+    // Form submit handler
+    nameForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const newName = customNameInput.value.trim();
+        
+        // Validate name
+        if (!newName) {
+            nameError.textContent = 'Please enter a dataset name.';
+            nameError.style.display = 'block';
+            return;
+        }
+        
+        // Check if the new name also exists
+        if (existingDatasets.includes(newName)) {
+            nameError.textContent = `A dataset with the name "${newName}" already exists. Please choose a different name.`;
+            nameError.style.display = 'block';
+            return;
+        }
+        
+        // Remove modal
+        document.body.removeChild(modal);
+        
+        // Proceed with upload using the custom name
+        uploadFileWithName(file, newName);
+    });
+}
+
+// Upload file with the specified name
+function uploadFileWithName(file, datasetName) {
+    // Show loading state
+    uploadArea.innerHTML = `
+        <div class="upload-icon">
+            <div class="spinner" style="margin: 0 auto;"></div>
+        </div>
+        <p class="upload-text">Uploading and preprocessing ${file.name}...</p>
+    `;
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('dataset_name', datasetName);
+    
+    // Upload file
+    uploadDataset(formData);
+}
+
+// Upload dataset to server
+async function uploadDataset(formData) {
+    try {
+        const response = await fetch('/api/upload-dataset', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            
+            // Handle specific error cases
+            if (response.status === 409) {
+                // This shouldn't happen with client-side validation, but just in case
+                const datasetName = formData.get('dataset_name');
+                const file = formData.get('file');
+                
+                // Get existing datasets
+                const existingDatasets = Array.from(document.querySelectorAll('.dataset-item')).map(
+                    item => item.dataset.dataset
+                );
+                
+                // Show rename dialog
+                promptForDatasetName(file, datasetName, existingDatasets);
+                return;
+            } else {
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+            }
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Show success message
+            showSuccess(`Dataset '${result.dataset_name}' uploaded successfully!`);
+            
+            // Reset upload area
+            resetUploadArea();
+            
+            // Update datasets list dynamically instead of refreshing the page
+            updateDatasetsList(result);
+        } else {
+            throw new Error(result.message || 'Unknown error occurred');
+        }
+        
+    } catch (error) {
+        console.error('Error uploading dataset:', error);
+        showError(`Failed to upload dataset: ${error.message}`);
+        resetUploadArea();
+    }
+}
+
+// Update datasets list with the newly uploaded dataset
+async function updateDatasetsList(datasetInfo) {
+    try {
+        // Get the dataset grid
+        const datasetGrid = document.querySelector('.dataset-grid');
+        if (!datasetGrid) return;
+        
+        // Create a new dataset item
+        const newDatasetItem = document.createElement('div');
+        newDatasetItem.className = 'dataset-item';
+        newDatasetItem.dataset.dataset = datasetInfo.dataset_name;
+        
+        // Create the dataset item content
+        newDatasetItem.innerHTML = `
+            <div class="dataset-name">${datasetInfo.dataset_name}</div>
+            <div class="dataset-info">
+                <div style="margin-bottom: 5px;">
+                    <strong>${datasetInfo.rows.toLocaleString()}</strong> rows, 
+                    <strong>${datasetInfo.columns}</strong> columns
+                </div>
+                <div style="font-size: 0.8em; opacity: 0.9;">
+                    ${datasetInfo.column_names.slice(0, 3).join(', ')}${datasetInfo.column_names.length > 3 ? '...' : ''}
+                </div>
+            </div>
+        `;
+        
+        // Add click handler to the new dataset item
+        newDatasetItem.addEventListener('click', () => selectDataset(datasetInfo.dataset_name, newDatasetItem));
+        
+        // Add the new dataset item to the grid
+        datasetGrid.prepend(newDatasetItem);
+        
+        // Cache the dataset info
+        datasetInfoCache[datasetInfo.dataset_name] = {
+            name: datasetInfo.dataset_name,
+            rows: datasetInfo.rows,
+            columns: datasetInfo.columns,
+            column_names: datasetInfo.column_names
+        };
+        
+        // Automatically select the new dataset
+        selectDataset(datasetInfo.dataset_name, newDatasetItem);
+    } catch (error) {
+        console.error('Error updating datasets list:', error);
+    }
+}
+
+// Reset upload area to initial state
+function resetUploadArea() {
+    uploadArea.innerHTML = `
+        <div class="upload-icon">
+            <i class="fas fa-cloud-upload-alt"></i>
+        </div>
+        <p class="upload-text">Drag & drop a dataset file here or</p>
+        <label for="fileUpload" class="upload-btn">Browse Files</label>
+        <input type="file" id="fileUpload" class="file-input" accept=".parquet,.csv,.json,.xlsx" hidden>
+        <p class="upload-formats">Supported formats: .parquet, .csv, .json, .xlsx</p>
+    `;
+    
+    // Re-attach event listener to new file input
+    document.getElementById('fileUpload').addEventListener('change', handleFileSelect);
 } 

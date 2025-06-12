@@ -68,6 +68,15 @@
                     <span class="card-icon">📊</span>
                     Select Dataset
                 </h2>
+                <div class="dataset-upload-area" id="datasetUploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="upload-text">Drag & drop a dataset file here or</p>
+                    <label for="fileUpload" class="upload-btn">Browse Files</label>
+                    <input type="file" id="fileUpload" class="file-input" accept=".parquet,.csv,.json,.xlsx" hidden>
+                    <p class="upload-formats">Supported formats: .parquet, .csv, .json, .xlsx</p>
+                </div>
                 <div class="dataset-grid">
                     {% for dataset in datasets %}
                     <div class="dataset-item" data-dataset="{{ dataset }}">

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
@@ -12,6 +12,7 @@ from utilities.agents import get_pandas_code
 from utilities.code_execution import capture_exec_output
 from utilities.code_processing import clean_pandas_code, modify_dataset_paths
 from utilities.data_loading import read_dataset
+from utilities.data_preprocessing import preprocess_dataset, save_preprocessed_dataset
 from dotenv import load_dotenv, set_key
 from pathlib import Path
 
@@ -305,6 +306,77 @@ async def update_settings(settings: Settings):
         return {"message": "Settings updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating settings: {str(e)}")
+
+@app.post("/api/upload-dataset")
+async def upload_dataset(file: UploadFile = File(...), dataset_name: str = Form(None)):
+    """
+    Upload and preprocess a dataset file.
+    
+    The file will be:
+    1. Validated for supported format
+    2. Preprocessed to normalize column names
+    3. Saved to the datasets directory
+    """
+    try:
+        # Check file extension
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        supported_extensions = ['.parquet', '.csv', '.json', '.xlsx']
+        
+        if file_extension not in supported_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file format: {file_extension}. Supported formats: {', '.join(supported_extensions)}"
+            )
+        
+        # Use provided dataset name or original filename without extension
+        final_name = dataset_name or os.path.splitext(file.filename)[0]
+        
+        # Check if dataset with this name already exists
+        existing_datasets = get_available_datasets()
+        if final_name in existing_datasets:
+            raise HTTPException(
+                status_code=409,  # Conflict status code
+                detail=f"Dataset with name '{final_name}' already exists. Please use a different name."
+            )
+        
+        # Create a temporary file to store the uploaded content
+        temp_file_path = f"temp_{file.filename}"
+        with open(temp_file_path, "wb") as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+        
+        try:
+            # Read the dataset
+            df = read_dataset(temp_file_path)
+            
+            # Preprocess the dataset
+            preprocessed_df = preprocess_dataset(df)
+            
+            # Save the preprocessed dataset
+            output_path = save_preprocessed_dataset(preprocessed_df, final_name)
+            
+            # Get basic dataset info
+            row_count = len(preprocessed_df)
+            column_count = len(preprocessed_df.columns)
+            
+            return {
+                "success": True,
+                "message": f"Dataset '{final_name}' uploaded and preprocessed successfully",
+                "dataset_name": final_name,
+                "rows": row_count,
+                "columns": column_count,
+                "column_names": preprocessed_df.columns.tolist()
+            }
+        finally:
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+    
+    except HTTPException:
+        # Re-raise HTTP exceptions as they already have the right format
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing dataset: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
