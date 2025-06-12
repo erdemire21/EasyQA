@@ -467,35 +467,252 @@ html {
 
 /* Copy Button Styles */
 .copy-button {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: white !important;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.8rem;
     display: none;
-    -webkit-text-fill-color: white !important;
-    text-fill-color: white !important;
-    backdrop-filter: blur(5px);
+}
+
+/* Settings Styles */
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.settings-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #667eea;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
     transition: all 0.3s ease;
 }
 
-.copy-button:hover {
-    background: rgba(255, 255, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.5);
+.settings-btn:hover {
+    background: rgba(102, 126, 234, 0.1);
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.settings-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    display: none;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 80px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.settings-modal.active {
+    display: flex;
+    opacity: 1;
+}
+
+.settings-content {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 30px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transform: translateY(-20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.settings-modal.active .settings-content {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+}
+
+.settings-header h2 {
+    font-size: 1.5rem;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.close-settings {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.close-settings:hover {
+    background: rgba(107, 114, 128, 0.1);
+    color: #374151;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Code Section Styles */
+.code-section {
+    margin-top: 20px;
+}
+
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.code-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.toggle-code {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.toggle-code:hover {
+    background: rgba(107, 114, 128, 0.1);
+    color: #374151;
+}
+
+.code-container {
+    position: relative;
+    background: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.copy-code {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 2;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.copy-code::after {
+    content: 'Copy';
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.code-container:hover .copy-code {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
     transform: translateY(-1px);
 }
 
-.copy-button:active {
+.copy-code:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.copy-code:active {
     transform: translateY(0);
 }
 
-/* Ensure emojis in buttons are visible */
-button, .copy-button {
-    color: inherit !important;
-    -webkit-text-fill-color: inherit !important;
+.code-box {
+    margin: 0;
+    padding: 20px;
+    background: #1a1a1a;
+    color: #fff;
+    border-radius: 12px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    max-height: 500px;
+    transition: all 0.3s ease;
+}
+
+.code-box.collapsed {
+    max-height: 0;
+    padding: 0;
+    opacity: 0;
+}
+
+/* Success Message Styles */
+.success-card {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(34, 197, 94, 0.95);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+    animation: slideIn 0.3s ease forwards;
+    z-index: 1000;
+}
+
+.success-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+}
+
+.success-content i {
+    font-size: 1.2rem;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 } 

@@ -12,6 +12,11 @@ from utilities.agents import get_pandas_code
 from utilities.code_execution import capture_exec_output
 from utilities.code_processing import clean_pandas_code, modify_dataset_paths
 from utilities.data_loading import read_dataset
+from dotenv import load_dotenv, set_key
+from pathlib import Path
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="QA-UI Dataset Question Answering", version="1.0.0")
 
@@ -29,6 +34,12 @@ class QuestionResponse(BaseModel):
     dataset_used: str
     success: bool
     error_message: Optional[str] = None
+
+class Settings(BaseModel):
+    api_key: str
+    api_base_url: str
+    main_llm: str
+    error_llm: str
 
 def get_available_datasets():
     """Get list of available datasets (names only) from the datasets folder."""
@@ -259,6 +270,41 @@ async def execute_code(code_data: dict):
         return {"result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/settings")
+async def get_settings():
+    """Get current settings from .env file."""
+    try:
+        return {
+            "api_key": os.getenv("API_KEY", ""),
+            "api_base_url": os.getenv("API_BASE_URL", ""),
+            "main_llm": os.getenv("MAIN_LLM", ""),
+            "error_llm": os.getenv("ERROR_LLM", "")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading settings: {str(e)}")
+
+@app.post("/api/settings")
+async def update_settings(settings: Settings):
+    """Update settings in .env file."""
+    try:
+        env_path = Path('.env')
+        
+        # Update environment variables
+        os.environ["API_KEY"] = settings.api_key
+        os.environ["API_BASE_URL"] = settings.api_base_url
+        os.environ["MAIN_LLM"] = settings.main_llm
+        os.environ["ERROR_LLM"] = settings.error_llm
+        
+        # Update .env file
+        set_key(env_path, "API_KEY", settings.api_key)
+        set_key(env_path, "API_BASE_URL", settings.api_base_url)
+        set_key(env_path, "MAIN_LLM", settings.main_llm)
+        set_key(env_path, "ERROR_LLM", settings.error_llm)
+        
+        return {"message": "Settings updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating settings: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

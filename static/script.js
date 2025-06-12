@@ -6,9 +6,9 @@ let datasetInfoCache = {};
 const datasetItems = document.querySelectorAll('.dataset-item');
 const selectedDatasetInput = document.getElementById('selectedDataset');
 const questionTextarea = document.getElementById('question');
-const submitBtn = document.querySelector('.submit-btn');
-const btnText = document.querySelector('.btn-text');
-const btnSpinner = document.querySelector('.btn-spinner');
+const submitBtn = document.querySelector('.question-submit-btn');
+const btnText = submitBtn.querySelector('.btn-text');
+const btnSpinner = submitBtn.querySelector('.btn-spinner');
 const questionForm = document.getElementById('questionForm');
 const resultsCard = document.getElementById('resultsCard');
 const errorCard = document.getElementById('errorCard');
@@ -16,10 +16,18 @@ const answerBox = document.getElementById('answerBox');
 const codeBox = document.getElementById('codeBox');
 const errorContent = document.getElementById('errorContent');
 
+// Settings elements
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettingsBtn = document.querySelector('.close-settings');
+const settingsForm = document.getElementById('settingsForm');
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     initializeDatasets();
     initializeForm();
+    initializeSettings();
+    initializeCodeToggle();
 });
 
 // Initialize dataset functionality
@@ -277,37 +285,154 @@ datasetItems.forEach(item => {
     observer.observe(item);
 });
 
-// Add copy to clipboard functionality for code
-if (navigator.clipboard) {
-    const copyButton = document.createElement('button');
-    copyButton.innerHTML = '📋 Copy Code';
-    copyButton.className = 'copy-button';
+// Initialize settings functionality
+function initializeSettings() {
+    // Load current settings
+    loadSettings();
     
-    // Add copy functionality when results are shown
-    const originalShowResults = showResults;
-    showResults = function(result) {
-        originalShowResults(result);
+    // Toggle settings modal
+    settingsBtn.addEventListener('click', () => {
+        settingsModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    });
+    
+    closeSettingsBtn.addEventListener('click', () => {
+        settingsModal.classList.remove('active');
+        document.body.style.overflow = '';
+    });
+    
+    // Close modal when clicking outside
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) {
+            settingsModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
+    
+    // Handle settings form submission
+    settingsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        // Add copy button to code box
-        const codeSection = document.querySelector('.code-section');
-        codeSection.style.position = 'relative';
-        codeSection.appendChild(copyButton);
-        copyButton.style.display = 'block';
-        
-        copyButton.onclick = async () => {
-            try {
-                await navigator.clipboard.writeText(result.generated_code);
-                copyButton.innerHTML = '✅ Copied!';
-                setTimeout(() => {
-                    copyButton.innerHTML = '📋 Copy Code';
-                }, 2000);
-            } catch (err) {
-                console.error('Failed to copy: ', err);
-                copyButton.innerHTML = '❌ Failed';
-                setTimeout(() => {
-                    copyButton.innerHTML = '📋 Copy Code';
-                }, 2000);
-            }
+        const formData = new FormData(settingsForm);
+        const settings = {
+            api_key: formData.get('apiKey'),
+            api_base_url: formData.get('apiBaseUrl'),
+            main_llm: formData.get('mainLlm'),
+            error_llm: formData.get('errorLlm')
         };
-    };
+        
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to save settings');
+            }
+            
+            // Close modal on success
+            settingsModal.classList.remove('active');
+            document.body.style.overflow = '';
+            
+            // Show success message
+            showSuccess('Settings saved successfully');
+            
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            showError('Failed to save settings: ' + error.message);
+        }
+    });
+}
+
+// Load current settings
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) {
+            throw new Error('Failed to load settings');
+        }
+        
+        const settings = await response.json();
+        
+        // Update form fields
+        document.getElementById('apiKey').value = settings.api_key || '';
+        document.getElementById('apiBaseUrl').value = settings.api_base_url || '';
+        document.getElementById('mainLlm').value = settings.main_llm || '';
+        document.getElementById('errorLlm').value = settings.error_llm || '';
+        
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        showError('Failed to load settings: ' + error.message);
+    }
+}
+
+// Initialize code toggle functionality
+function initializeCodeToggle() {
+    const toggleCodeBtn = document.querySelector('.toggle-code');
+    const copyCodeBtn = document.querySelector('.copy-code');
+    
+    if (toggleCodeBtn) {
+        toggleCodeBtn.addEventListener('click', () => {
+            const codeBox = document.getElementById('codeBox');
+            codeBox.classList.toggle('collapsed');
+            
+            // Update icon
+            const icon = toggleCodeBtn.querySelector('i');
+            if (codeBox.classList.contains('collapsed')) {
+                icon.className = 'fas fa-chevron-down';
+            } else {
+                icon.className = 'fas fa-chevron-up';
+            }
+        });
+    }
+    
+    if (copyCodeBtn) {
+        copyCodeBtn.addEventListener('click', async () => {
+            const codeBox = document.getElementById('codeBox');
+            const code = codeBox.textContent;
+            
+            try {
+                await navigator.clipboard.writeText(code);
+                
+                // Show success feedback
+                const originalIcon = copyCodeBtn.querySelector('i');
+                const originalClass = originalIcon.className;
+                
+                originalIcon.className = 'fas fa-check';
+                copyCodeBtn.style.background = 'rgba(34, 197, 94, 0.2)';
+                
+                setTimeout(() => {
+                    originalIcon.className = originalClass;
+                    copyCodeBtn.style.background = 'rgba(255, 255, 255, 0.15)';
+                }, 2000);
+                
+            } catch (err) {
+                console.error('Failed to copy code:', err);
+                showError('Failed to copy code to clipboard');
+            }
+        });
+    }
+}
+
+// Show success message
+function showSuccess(message) {
+    const successCard = document.createElement('div');
+    successCard.className = 'card success-card';
+    successCard.innerHTML = `
+        <div class="success-content">
+            <i class="fas fa-check-circle"></i>
+            ${message}
+        </div>
+    `;
+    
+    document.querySelector('.container').appendChild(successCard);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        successCard.remove();
+    }, 3000);
 } 
