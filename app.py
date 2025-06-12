@@ -10,7 +10,8 @@ import asyncio
 from typing import Optional, List
 from utilities.agents import get_pandas_code
 from utilities.code_execution import capture_exec_output
-from utilities.code_processing import clean_pandas_code, modify_parquet_paths
+from utilities.code_processing import clean_pandas_code, modify_dataset_paths
+from utilities.data_loading import read_dataset
 
 app = FastAPI(title="QA-UI Dataset Question Answering", version="1.0.0")
 
@@ -30,20 +31,37 @@ class QuestionResponse(BaseModel):
     error_message: Optional[str] = None
 
 def get_available_datasets():
-    """Get list of available datasets from the datasets folder."""
+    """Get list of available datasets (names only) from the datasets folder."""
     datasets = []
     datasets_path = "datasets"
+    supported_extensions = ['.parquet', '.csv', '.json', '.xlsx']
+    
     if os.path.exists(datasets_path):
         for file in os.listdir(datasets_path):
-            if file.endswith('.parquet'):
-                dataset_name = file.replace('.parquet', '')
+            file_extension = os.path.splitext(file)[1].lower()
+            if file_extension in supported_extensions:
+                dataset_name = os.path.splitext(file)[0]
                 datasets.append(dataset_name)
-    return sorted(datasets)
+    return sorted(set(datasets))
 
 def generate_schema_for_dataset(dataset_name: str) -> str:
     """Generate schema summary for a dataset."""
     try:
-        df = pd.read_parquet(f"datasets/{dataset_name}.parquet")
+        # Find the file with matching name but any supported extension
+        datasets_path = "datasets"
+        supported_extensions = ['.parquet', '.csv', '.json', '.xlsx']
+        dataset_file = None
+        
+        for ext in supported_extensions:
+            potential_file = f"{datasets_path}/{dataset_name}{ext}"
+            if os.path.exists(potential_file):
+                dataset_file = potential_file
+                break
+        
+        if not dataset_file:
+            raise FileNotFoundError(f"No dataset file found for {dataset_name}")
+            
+        df = read_dataset(dataset_file)
         
         # Generate schema summary similar to preprocessing
         summary_lines = []
@@ -103,7 +121,7 @@ async def process_question_async(question: str, dataset: str, max_retries: int =
                 
                 # Clean and modify the code
                 cleaned_code = clean_pandas_code(generated_code)
-                modified_code = modify_parquet_paths(cleaned_code, dataset_folder_path="datasets/")
+                modified_code = modify_dataset_paths(cleaned_code, dataset_folder_path="datasets/")
                 
                 # Execute the code
                 result = capture_exec_output(modified_code)
@@ -115,7 +133,7 @@ async def process_question_async(question: str, dataset: str, max_retries: int =
                     if attempt == max_retries:
                         return QuestionResponse(
                             answer="",
-                            generated_code=cleaned_code,
+                            generated_code=modified_code,
                             dataset_used=dataset,
                             success=False,
                             error_message=f"Failed after {max_retries + 1} attempts. Last error: {error_msg}"
@@ -125,7 +143,7 @@ async def process_question_async(question: str, dataset: str, max_retries: int =
                 # Success!
                 return QuestionResponse(
                     answer=str(result),
-                    generated_code=cleaned_code,
+                    generated_code=modified_code,
                     dataset_used=dataset,
                     success=True
                 )
@@ -138,7 +156,7 @@ async def process_question_async(question: str, dataset: str, max_retries: int =
                 else:
                     return QuestionResponse(
                         answer="",
-                        generated_code=generated_code if 'generated_code' in locals() else "",
+                        generated_code=modified_code if 'modified_code' in locals() else (generated_code if 'generated_code' in locals() else ""),
                         dataset_used=dataset,
                         success=False,
                         error_message=f"Failed after {max_retries + 1} attempts. Last error: {error_msg}"
@@ -193,13 +211,31 @@ async def ask_question(question_request: QuestionRequest):
 async def get_dataset_info(dataset_name: str):
     """Get basic information about a dataset."""
     available_datasets = get_available_datasets()
+    
     if dataset_name not in available_datasets:
         raise HTTPException(status_code=404, detail="Dataset not found")
     
     try:
-        df = pd.read_parquet(f"datasets/{dataset_name}.parquet")
+        # Find the file with matching name but any supported extension
+        datasets_path = "datasets"
+        supported_extensions = ['.parquet', '.csv', '.json', '.xlsx']
+        dataset_file = None
+        
+        for ext in supported_extensions:
+            potential_file = f"{datasets_path}/{dataset_name}{ext}"
+            if os.path.exists(potential_file):
+                dataset_file = potential_file
+                file_format = ext[1:]  # Remove the dot
+                break
+        
+        if not dataset_file:
+            raise FileNotFoundError(f"No dataset file found for {dataset_name}")
+            
+        df = read_dataset(dataset_file)
+        
         return {
             "name": dataset_name,
+            "format": file_format,
             "rows": len(df),
             "columns": len(df.columns),
             "column_names": df.columns.tolist(),
@@ -207,6 +243,22 @@ async def get_dataset_info(dataset_name: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading dataset: {str(e)}")
+
+@app.post("/api/execute")
+async def execute_code(code_data: dict):
+    """Execute pandas code and return the result."""
+    try:
+        # Extract and clean the code
+        raw_code = code_data.get('code', '')
+        cleaned_code = clean_pandas_code(raw_code)
+        
+        # Modify the dataset paths and execute the code
+        modified_code = modify_dataset_paths(cleaned_code, dataset_folder_path="datasets/")
+        result = capture_exec_output(modified_code)
+        
+        return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
