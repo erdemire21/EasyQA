@@ -81,7 +81,18 @@ def generate_schema_for_dataset(dataset_name: str) -> str:
         
         for column in df.columns:
             value_type = df[column].dtype
-            unique_values = df[column].dropna().astype(str).unique()
+            try:
+                # Get unique values, handling potential array comparison issues
+                column_series = df[column]
+                # Convert to string first to avoid array comparison issues
+                string_series = column_series.astype(str)
+                # Filter out 'nan', 'None', etc.
+                filtered_series = string_series[~string_series.isin(['nan', 'None', 'null', ''])]
+                unique_values = filtered_series.unique()
+            except Exception:
+                # Fallback: just get first few values as strings
+                unique_values = df[column].head(5).astype(str).tolist()
+            
             limited_values = unique_values[:5]
             processed_values = []
             cumulative_char_count = 0
@@ -89,10 +100,10 @@ def generate_schema_for_dataset(dataset_name: str) -> str:
             for value in limited_values:
                 if cumulative_char_count > 50:
                     break
-                if len(value) > 100:
-                    value = value[:97] + "..."
-                processed_values.append(value)
-                cumulative_char_count += len(value)
+                if len(str(value)) > 100:
+                    value = str(value)[:97] + "..."
+                processed_values.append(str(value))
+                cumulative_char_count += len(str(value))
             
             example_values = ", ".join(processed_values)
             total_unique = len(unique_values)
@@ -405,6 +416,95 @@ async def delete_dataset(dataset_name: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting dataset: {str(e)}")
+
+@app.get("/dataset/{dataset_name}/view", response_class=HTMLResponse)
+async def view_dataset(request: Request, dataset_name: str, page: int = 1, per_page: int = 10):
+    """View dataset data with pagination."""
+    try:
+        # Check if dataset exists
+        available_datasets = get_available_datasets()
+        if dataset_name not in available_datasets:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        
+        # Find the dataset file
+        datasets_path = "datasets"
+        supported_extensions = ['.parquet', '.csv', '.json', '.xlsx']
+        dataset_file = None
+        
+        for ext in supported_extensions:
+            potential_file = f"{datasets_path}/{dataset_name}{ext}"
+            if os.path.exists(potential_file):
+                dataset_file = potential_file
+                break
+        
+        if not dataset_file:
+            raise HTTPException(status_code=404, detail=f"Dataset file not found for {dataset_name}")
+        
+        # Read the dataset
+        df = read_dataset(dataset_file)
+        
+        # Validate per_page parameter
+        valid_per_page_options = [10, 25, 100, 1000]
+        if per_page not in valid_per_page_options:
+            per_page = 10
+        
+        # Pagination settings
+        rows_per_page = per_page
+        total_rows = len(df)
+        total_pages = max(1, (total_rows + rows_per_page - 1) // rows_per_page)
+        
+        # Validate page number
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+        
+        # Get data for current page
+        start_idx = (page - 1) * rows_per_page
+        end_idx = min(start_idx + rows_per_page, total_rows)
+        
+        # Simple approach: convert everything to strings upfront
+        columns = [str(col) for col in df.columns]
+        
+        # Get the data slice and convert to simple lists
+        data_rows = []
+        for i in range(start_idx, end_idx):
+            row_data = []
+            for j, col in enumerate(df.columns):
+                try:
+                    # Get value by position
+                    val = df.iat[i, j]
+                    # Convert to string
+                    str_val = str(val)
+                    # Clean up common null representations
+                    if str_val.lower() in ['nan', 'none', 'null']:
+                        str_val = ""
+                    # Truncate if too long
+                    if len(str_val) > 50:
+                        str_val = str_val[:47] + "..."
+                    row_data.append(str_val)
+                except:
+                    row_data.append("[Error]")
+            data_rows.append(row_data)
+        
+        return templates.TemplateResponse("dataset_viewer.html", {
+            "request": request,
+            "dataset_name": dataset_name,
+            "columns": columns,
+            "data": data_rows,
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_rows": total_rows,
+            "total_columns": len(columns),
+            "rows_per_page": rows_per_page,
+            "per_page": per_page,
+            "valid_per_page_options": valid_per_page_options
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error viewing dataset: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

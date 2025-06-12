@@ -189,16 +189,18 @@ body {
     right: 10px;
     opacity: 0;
     transition: opacity 0.3s ease;
+    display: flex;
+    gap: 5px;
 }
 
 .dataset-item:hover .dataset-actions {
     opacity: 1;
 }
 
+.dataset-view,
 .dataset-delete {
     background: none;
     border: none;
-    color: #ef4444;
     font-size: 1rem;
     cursor: pointer;
     padding: 5px;
@@ -207,6 +209,19 @@ body {
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+}
+
+.dataset-view {
+    color: #3b82f6;
+}
+
+.dataset-view:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+    transform: scale(1.1);
+}
+
+.dataset-delete {
+    color: #ef4444;
 }
 
 .dataset-delete:hover {

@@ -84,11 +84,24 @@ function updateDatasetInfo(itemElement, info) {
         </div>
     `;
     
-    // Add delete button if not already present
+    // Add action buttons if not already present
     if (!itemElement.querySelector('.dataset-actions')) {
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'dataset-actions';
         
+        // View button
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'dataset-view';
+        viewBtn.title = 'View dataset';
+        viewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+        
+        // Add click handler for view button
+        viewBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent dataset selection when clicking view
+            viewDataset(itemElement.dataset.dataset);
+        });
+        
+        // Delete button
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'dataset-delete';
         deleteBtn.title = 'Delete dataset';
@@ -100,6 +113,7 @@ function updateDatasetInfo(itemElement, info) {
             showDeleteConfirmation(itemElement.dataset.dataset);
         });
         
+        actionsDiv.appendChild(viewBtn);
         actionsDiv.appendChild(deleteBtn);
         itemElement.appendChild(actionsDiv);
     }
@@ -452,8 +466,8 @@ function showSuccess(message) {
     if (!successCard) {
         successCard = document.createElement('div');
         successCard.id = 'successCard';
-        successCard.className = 'card success-card';
-        successCard.innerHTML = `
+    successCard.className = 'card success-card';
+    successCard.innerHTML = `
             <h2 class="card-title">
                 <span class="card-icon">✅</span>
                 Success
@@ -726,6 +740,9 @@ async function updateDatasetsList(datasetInfo) {
                 </div>
             </div>
             <div class="dataset-actions">
+                <button class="dataset-view" title="View dataset">
+                    <i class="fas fa-eye"></i>
+                </button>
                 <button class="dataset-delete" title="Delete dataset">
                     <i class="fas fa-trash-alt"></i>
                 </button>
@@ -734,6 +751,13 @@ async function updateDatasetsList(datasetInfo) {
         
         // Add click handler to the new dataset item
         newDatasetItem.addEventListener('click', () => selectDataset(datasetInfo.dataset_name, newDatasetItem));
+        
+        // Add view button click handler
+        const viewBtn = newDatasetItem.querySelector('.dataset-view');
+        viewBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent dataset selection when clicking view
+            viewDataset(datasetInfo.dataset_name);
+        });
         
         // Add delete button click handler
         const deleteBtn = newDatasetItem.querySelector('.dataset-delete');
@@ -887,4 +911,10 @@ async function deleteDataset(datasetName) {
             datasetItem.style.pointerEvents = '';
         }
     }
+}
+
+// View dataset in new tab
+function viewDataset(datasetName) {
+    const url = `/dataset/${datasetName}/view`;
+    window.open(url, '_blank');
 } 
