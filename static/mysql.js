@@ -5,7 +5,15 @@ let mysqlState = {
     selectedDatabase: null,
     selectedTable: null,
     connectionStatus: false,
-    currentStep: 'databases' // 'databases', 'tables', 'questions'
+    currentStep: 'databases', // 'databases', 'tables', 'questions'
+    currentSchema: null,
+    tableViewState: {
+        currentPage: 1,
+        perPage: 10,
+        totalPages: 1,
+        totalRows: 0,
+        data: null
+    }
 };
 
 // DOM Elements
@@ -85,6 +93,41 @@ function setupEventListeners() {
     
     // Code toggle
     mysqlToggleCode.addEventListener('click', toggleMySQLCode);
+    
+    // Table viewer buttons
+    document.getElementById('viewTableBtn').addEventListener('click', showTableData);
+    document.getElementById('viewSchemaBtn').addEventListener('click', showSchemaData);
+    
+    // Table pagination
+    document.getElementById('tablePerPageSelect').addEventListener('change', (e) => {
+        mysqlState.tableViewState.currentPage = 1;
+        mysqlState.tableViewState.perPage = parseInt(e.target.value);
+        loadTableData();
+    });
+    
+    document.getElementById('tableFirstPageBtn').addEventListener('click', () => {
+        mysqlState.tableViewState.currentPage = 1;
+        loadTableData();
+    });
+    
+    document.getElementById('tablePrevPageBtn').addEventListener('click', () => {
+        if (mysqlState.tableViewState.currentPage > 1) {
+            mysqlState.tableViewState.currentPage--;
+            loadTableData();
+        }
+    });
+    
+    document.getElementById('tableNextPageBtn').addEventListener('click', () => {
+        if (mysqlState.tableViewState.currentPage < mysqlState.tableViewState.totalPages) {
+            mysqlState.tableViewState.currentPage++;
+            loadTableData();
+        }
+    });
+    
+    document.getElementById('tableLastPageBtn').addEventListener('click', () => {
+        mysqlState.tableViewState.currentPage = mysqlState.tableViewState.totalPages;
+        loadTableData();
+    });
 }
 
 function showConnectionStatus(message, type) {
@@ -255,6 +298,14 @@ function displaySchema(schema) {
     schemaRowCount.textContent = `${schema.row_count.toLocaleString()} rows`;
     schemaColumnCount.textContent = `${schema.columns.length} columns`;
     
+    // Show view schema button and hide view table button (reversed default)
+    document.getElementById('viewTableBtn').style.display = 'none';
+    document.getElementById('viewSchemaBtn').style.display = 'flex';
+    
+    // Show table data view and hide schema view (reversed default)
+    document.getElementById('schemaView').style.display = 'none';
+    document.getElementById('tableDataView').style.display = 'block';
+    
     // Update columns table
     columnsTableBody.innerHTML = '';
     
@@ -276,6 +327,12 @@ function displaySchema(schema) {
         `;
         columnsTableBody.appendChild(row);
     });
+    
+    // Store schema for table viewer
+    mysqlState.currentSchema = schema;
+    
+    // Load table data by default
+    loadTableData();
 }
 
 function updateContextInfo(database, table) {
@@ -413,4 +470,123 @@ function toggleMySQLCode() {
         codeBox.style.display = 'none';
         toggleText.textContent = 'Show Code';
     }
+}
+
+// Table Viewer Functions
+async function showTableData() {
+    if (!mysqlState.selectedDatabase || !mysqlState.selectedTable) {
+        showError('No table selected');
+        return;
+    }
+    
+    // Update buttons
+    document.getElementById('viewTableBtn').style.display = 'none';
+    document.getElementById('viewSchemaBtn').style.display = 'flex';
+    
+    // Update views
+    document.getElementById('schemaView').style.display = 'none';
+    document.getElementById('tableDataView').style.display = 'block';
+    
+    // Load table data
+    await loadTableData();
+}
+
+function showSchemaData() {
+    // Update buttons
+    document.getElementById('viewTableBtn').style.display = 'flex';
+    document.getElementById('viewSchemaBtn').style.display = 'none';
+    
+    // Update views
+    document.getElementById('schemaView').style.display = 'block';
+    document.getElementById('tableDataView').style.display = 'none';
+}
+
+async function loadTableData() {
+    try {
+        const tableBody = document.getElementById('mysqlDataTableBody');
+        tableBody.innerHTML = '<tr><td colspan="100%" style="text-align: center; padding: 20px;">Loading data...</td></tr>';
+        
+        const response = await fetch(
+            `/api/mysql/table-data/${mysqlState.selectedDatabase}/${mysqlState.selectedTable}` +
+            `?page=${mysqlState.tableViewState.currentPage}&per_page=${mysqlState.tableViewState.perPage}`
+        );
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            displayTableData(result.data);
+        } else {
+            tableBody.innerHTML = `<tr><td colspan="100%" style="text-align: center; padding: 20px; color: #ef4444;">Error loading data: ${result.message || 'Unknown error'}</td></tr>`;
+        }
+    } catch (error) {
+        const tableBody = document.getElementById('mysqlDataTableBody');
+        tableBody.innerHTML = `<tr><td colspan="100%" style="text-align: center; padding: 20px; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    }
+}
+
+function displayTableData(data) {
+    const tableHead = document.getElementById('mysqlDataTableHead');
+    const tableBody = document.getElementById('mysqlDataTableBody');
+    
+    // Update pagination state
+    mysqlState.tableViewState.totalPages = data.pagination.total_pages;
+    mysqlState.tableViewState.totalRows = data.pagination.total_rows;
+    mysqlState.tableViewState.currentPage = data.pagination.current_page;
+    
+    // Clear existing content
+    tableHead.innerHTML = '';
+    tableBody.innerHTML = '';
+    
+    // Create table header
+    const headerRow = document.createElement('tr');
+    data.columns.forEach(column => {
+        const th = document.createElement('th');
+        th.textContent = column;
+        headerRow.appendChild(th);
+    });
+    tableHead.appendChild(headerRow);
+    
+    // Create table rows
+    data.rows.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach(cell => {
+            const td = document.createElement('td');
+            td.textContent = cell || '';
+            td.title = cell || '';
+            tr.appendChild(td);
+        });
+        tableBody.appendChild(tr);
+    });
+    
+    // Update pagination controls
+    updatePaginationControls(data.pagination);
+    
+    // Update per-page selector
+    document.getElementById('tablePerPageSelect').value = data.pagination.per_page;
+    
+    // Update entries info
+    const startEntry = (data.pagination.current_page - 1) * data.pagination.per_page + 1;
+    const endEntry = Math.min(startEntry + data.rows.length - 1, data.pagination.total_rows);
+    document.getElementById('tableEntriesInfo').textContent = 
+        `Showing ${startEntry} to ${endEntry} of ${data.pagination.total_rows.toLocaleString()} entries`;
+}
+
+function updatePaginationControls(pagination) {
+    const firstBtn = document.getElementById('tableFirstPageBtn');
+    const prevBtn = document.getElementById('tablePrevPageBtn');
+    const nextBtn = document.getElementById('tableNextPageBtn');
+    const lastBtn = document.getElementById('tableLastPageBtn');
+    const pageInfo = document.getElementById('tablePageInfo');
+    
+    // Update page info
+    pageInfo.textContent = `Page ${pagination.current_page} of ${pagination.total_pages}`;
+    
+    // Update button states
+    const isFirstPage = pagination.current_page === 1;
+    const isLastPage = pagination.current_page === pagination.total_pages;
+    
+    firstBtn.disabled = isFirstPage;
+    prevBtn.disabled = isFirstPage;
+    nextBtn.disabled = isLastPage;
+    lastBtn.disabled = isLastPage;
 } 

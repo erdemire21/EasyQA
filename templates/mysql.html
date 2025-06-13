@@ -264,6 +264,152 @@
             align-items: center;
             gap: 10px;
         }
+        
+        /* Table Actions */
+        .table-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .view-table-btn,
+        .view-schema-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .view-table-btn:hover,
+        .view-schema-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .view-schema-btn {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+        
+        .view-schema-btn:hover {
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+        }
+        
+        /* Table Data Viewer */
+        .table-viewer-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .per-page-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .per-page-selector select {
+            padding: 5px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .data-table th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .data-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e5e7eb;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .data-table tr:hover {
+            background-color: rgba(102, 126, 234, 0.05);
+        }
+        
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 15px;
+        }
+        
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .pagination button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pagination button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .pagination button:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .page-info {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin: 0 10px;
+        }
+        
+        .entries-info {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
     </style>
 </head>
 <body>
@@ -340,7 +486,7 @@
                     <span>Back to Tables</span>
                 </div>
                 
-                <!-- Schema Viewer -->
+                <!-- Schema/Table Viewer -->
                 <div class="card schema-card">
                     <div class="schema-header">
                         <div class="schema-title">
@@ -357,21 +503,82 @@
                                 <span id="schemaColumnCount">0 columns</span>
                             </div>
                         </div>
+                        <div class="table-actions">
+                            <button id="viewTableBtn" class="view-table-btn" style="display: none;">
+                                <i class="fas fa-eye"></i>
+                                View Table Data
+                            </button>
+                            <button id="viewSchemaBtn" class="view-schema-btn" style="display: none;">
+                                <i class="fas fa-list"></i>
+                                View Schema
+                            </button>
+                        </div>
                     </div>
                     
-                    <table class="columns-table" id="columnsTable">
-                        <thead>
-                            <tr>
-                                <th>Column Name</th>
-                                <th>Data Type</th>
-                                <th>Nullable</th>
-                                <th>Key</th>
-                                <th>Default</th>
-                            </tr>
-                        </thead>
-                        <tbody id="columnsTableBody">
-                        </tbody>
-                    </table>
+                    <!-- Schema Table -->
+                    <div id="schemaView">
+                        <table class="columns-table" id="columnsTable">
+                            <thead>
+                                <tr>
+                                    <th>Column Name</th>
+                                    <th>Data Type</th>
+                                    <th>Nullable</th>
+                                    <th>Key</th>
+                                    <th>Default</th>
+                                </tr>
+                            </thead>
+                            <tbody id="columnsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Table Data Viewer -->
+                    <div id="tableDataView" style="display: none;">
+                        <div class="table-viewer-controls">
+                            <div class="per-page-selector">
+                                <label for="tablePerPageSelect">Show:</label>
+                                <select id="tablePerPageSelect">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="100">100</option>
+                                    <option value="1000">1000</option>
+                                </select>
+                                <span>entries per page</span>
+                            </div>
+                            <div class="entries-info" id="tableEntriesInfo">
+                                Showing entries
+                            </div>
+                        </div>
+                        
+                        <div class="table-wrapper">
+                            <table class="data-table" id="mysqlDataTable">
+                                <thead id="mysqlDataTableHead">
+                                </thead>
+                                <tbody id="mysqlDataTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="pagination-controls" id="tablePaginationControls">
+                            <div class="pagination">
+                                <button id="tableFirstPageBtn">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </button>
+                                <button id="tablePrevPageBtn">
+                                    <i class="fas fa-angle-left"></i>
+                                </button>
+                                <span class="page-info" id="tablePageInfo">
+                                    Page 1 of 1
+                                </span>
+                                <button id="tableNextPageBtn">
+                                    <i class="fas fa-angle-right"></i>
+                                </button>
+                                <button id="tableLastPageBtn">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Question Interface -->

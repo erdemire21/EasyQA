@@ -17,6 +17,8 @@ from utilities.mysql_handler import MySQLHandler
 from utilities.sql_agents import generate_sql_query
 from dotenv import load_dotenv, set_key
 from pathlib import Path
+from sqlalchemy import text
+import datetime
 
 # Load environment variables
 load_dotenv()
@@ -588,6 +590,80 @@ async def get_mysql_table_schema(database_name: str, table_name: str):
         return {"success": True, "schema": schema}
     except Exception as e:
         return {"success": False, "message": str(e), "schema": {}}
+
+@app.get("/api/mysql/table-data/{database_name}/{table_name}")
+async def get_mysql_table_data(database_name: str, table_name: str, page: int = 1, per_page: int = 10):
+    """Get paginated table data for MySQL tables."""
+    try:
+        mysql_handler = MySQLHandler()
+        mysql_handler.connect_to_database(database_name)
+        
+        # Validate per_page parameter
+        valid_per_page_options = [10, 25, 100, 1000]
+        if per_page not in valid_per_page_options:
+            per_page = 10
+        
+        # Get total row count
+        with mysql_handler.engine.connect() as conn:
+            count_result = conn.execute(text(f"SELECT COUNT(*) FROM `{table_name}`"))
+            total_rows = count_result.fetchone()[0]
+        
+        # Calculate pagination
+        total_pages = max(1, (total_rows + per_page - 1) // per_page)
+        
+        # Validate page number
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+        
+        # Get data for current page
+        offset = (page - 1) * per_page
+        query = f"SELECT * FROM `{table_name}` LIMIT {per_page} OFFSET {offset}"
+        
+        df = pd.read_sql(query, mysql_handler.engine)
+        mysql_handler.close_connection()
+        
+        # Convert DataFrame to list of dictionaries for JSON response
+        columns = df.columns.tolist()
+        data_rows = []
+        
+        for _, row in df.iterrows():
+            row_data = []
+            for col in columns:
+                val = row[col]
+                # Handle different data types
+                if pd.isna(val):
+                    str_val = ""
+                elif isinstance(val, (pd.Timestamp, datetime.datetime)):
+                    str_val = str(val)
+                elif isinstance(val, (int, float)):
+                    str_val = str(val)
+                else:
+                    str_val = str(val)
+                    # Truncate if too long
+                    if len(str_val) > 50:
+                        str_val = str_val[:47] + "..."
+                row_data.append(str_val)
+            data_rows.append(row_data)
+        
+        return {
+            "success": True,
+            "data": {
+                "columns": columns,
+                "rows": data_rows,
+                "pagination": {
+                    "current_page": page,
+                    "total_pages": total_pages,
+                    "total_rows": total_rows,
+                    "per_page": per_page,
+                    "valid_per_page_options": valid_per_page_options
+                }
+            }
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": str(e), "data": {}}
 
 @app.post("/api/mysql/ask")
 async def ask_mysql_question(mysql_request: MySQLQuestionRequest):
