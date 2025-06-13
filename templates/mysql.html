@@ -410,6 +410,84 @@
             font-size: 0.9rem;
             color: #6b7280;
         }
+        
+        /* Multi-table selection styles */
+        .btn-group {
+            display: flex;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn {
+            background: white;
+            border: 1px solid #d1d5db;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            border-radius: 0;
+        }
+        
+        .btn:first-child {
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+        
+        .btn:last-child {
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+            border-left: none;
+        }
+        
+        .btn:hover {
+            background: #f3f4f6;
+        }
+        
+        .btn.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .btn-outline-primary {
+            color: #667eea;
+        }
+        
+        .btn-outline-primary.active {
+            color: white;
+        }
+        
+        .btn-success {
+            transition: all 0.3s ease;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        /* Table item checkbox styling */
+        .table-item-checkbox {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            transform: scale(1.5);
+            accent-color: #667eea;
+        }
+        
+        .table-item.multi-mode {
+            padding-right: 50px;
+        }
+        
+        .table-item.multi-selected {
+            border-color: #10b981;
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+        }
     </style>
 </head>
 <body>
@@ -469,8 +547,37 @@
                 </div>
                 <h2 class="card-title">
                     <span class="card-icon">📊</span>
-                    Select Table
+                    Select Table(s)
                 </h2>
+                
+                <!-- Table Selection Mode Toggle -->
+                <div class="table-selection-mode" style="margin-bottom: 20px;">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary active" id="singleTableMode">
+                            <i class="fas fa-table"></i> Single Table
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="multiTableMode">
+                            <i class="fas fa-layer-group"></i> Multiple Tables
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Multi-table selection info -->
+                <div id="selectedTablesInfo" style="display: none; margin-bottom: 20px;">
+                    <div class="alert alert-info" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe); border: 1px solid #60a5fa; color: #1e40af; padding: 15px; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong><i class="fas fa-info-circle"></i> Selected Tables:</strong> 
+                                <span id="selectedTablesList"></span>
+                                <br><span id="selectedTablesCount"></span>
+                            </div>
+                            <button id="continueMultiTable" class="btn btn-success" style="display: none; background: linear-gradient(135deg, #10b981, #059669); border: none; padding: 8px 16px; border-radius: 6px; color: white; font-weight: 500;">
+                                <i class="fas fa-arrow-right"></i> Continue with Selected Tables
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="tableGrid" class="database-grid">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
