@@ -372,7 +372,7 @@ Feel free to contribute improvements:
 
 ## 📄 License
 
-This project maintains the same license as the original Easy-QA project.
+This project has no specific license. Feel free to use and modify it for personal or educational purposes. Contributions are welcome!
 
 ---
 
