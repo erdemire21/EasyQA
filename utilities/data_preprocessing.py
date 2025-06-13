@@ -6,16 +6,25 @@ import os
 from typing import Dict, Any
 
 
-def normalize_spanish_letters(text):
+def normalize_letters(text):
     """
-    Replace Spanish special letters with their English counterparts.
+    Replace special letters with their English counterparts.
     """
     replacements = {
+        # Spanish
         'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n',
         'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'Ü': 'U', 'Ñ': 'N',
+        # French
+        'à': 'a', 'â': 'a', 'ä': 'a', 'è': 'e', 'ê': 'e', 'ë': 'e', 'î': 'i', 'ï': 'i',
+        'ô': 'o', 'ö': 'o', 'ù': 'u', 'û': 'u', 'ÿ': 'y', 'ç': 'c',
+        'À': 'A', 'Â': 'A', 'Ä': 'A', 'È': 'E', 'Ê': 'E', 'Ë': 'E', 'Î': 'I', 'Ï': 'I',
+        'Ô': 'O', 'Ö': 'O', 'Ù': 'U', 'Û': 'U', 'Ÿ': 'Y', 'Ç': 'C',
+        # Turkish
+        'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ş': 's', 'ö': 'o', 'ü': 'u',
+        'Ç': 'C', 'Ğ': 'G', 'İ': 'I', 'Ş': 'S', 'Ö': 'O', 'Ü': 'U',
     }
-    for spanish_char, eng_char in replacements.items():
-        text = text.replace(spanish_char, eng_char)
+    for special_char, eng_char in replacements.items():
+        text = text.replace(special_char, eng_char)
     return text
 
 
@@ -37,8 +46,8 @@ def rename_columns_for_sql(df):
     new_columns = []
     
     for col in df.columns:
-        # Normalize Spanish special letters
-        new_col = normalize_spanish_letters(col)
+        # Normalize special letters 
+        new_col = normalize_letters(col)
         # Replace spaces and special characters with underscores except at the end
         new_col = re.sub(r'\W+(?=\w)', '_', new_col)
         # Replace special characters at the end with an empty string
