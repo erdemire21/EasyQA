@@ -357,7 +357,12 @@ function initializeSettings() {
             api_key: formData.get('apiKey'),
             api_base_url: formData.get('apiBaseUrl'),
             main_llm: formData.get('mainLlm'),
-            error_llm: formData.get('errorLlm')
+            error_llm: formData.get('errorLlm'),
+            mysql_host: formData.get('mysqlHost'),
+            mysql_port: formData.get('mysqlPort'),
+            mysql_username: formData.get('mysqlUsername'),
+            mysql_password: formData.get('mysqlPassword'),
+            mysql_database: formData.get('mysqlDatabase')
         };
         
         try {
@@ -402,6 +407,11 @@ async function loadSettings() {
         document.getElementById('apiBaseUrl').value = settings.api_base_url || '';
         document.getElementById('mainLlm').value = settings.main_llm || '';
         document.getElementById('errorLlm').value = settings.error_llm || '';
+        document.getElementById('mysqlHost').value = settings.mysql_host || '';
+        document.getElementById('mysqlPort').value = settings.mysql_port || '';
+        document.getElementById('mysqlUsername').value = settings.mysql_username || '';
+        document.getElementById('mysqlPassword').value = settings.mysql_password || '';
+        document.getElementById('mysqlDatabase').value = settings.mysql_database || '';
         
     } catch (error) {
         console.error('Error loading settings:', error);

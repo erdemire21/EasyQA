@@ -699,6 +699,20 @@ body {
     .submit-btn {
         padding: 12px 25px;
     }
+    
+    .settings-modal {
+        padding: 20px 10px;
+    }
+    
+    .settings-content {
+        width: 95%;
+        padding: 20px;
+        max-height: calc(100vh - 40px);
+    }
+    
+    .settings-section {
+        padding: 15px;
+    }
 }
 
 /* Animation for cards appearing */
@@ -787,10 +801,11 @@ html {
     display: none;
     justify-content: center;
     align-items: flex-start;
-    padding-top: 80px;
+    padding: 40px 20px;
     z-index: 1000;
     opacity: 0;
     transition: opacity 0.3s ease;
+    overflow-y: auto;
 }
 
 .settings-modal.active {
@@ -805,11 +820,14 @@ html {
     padding: 30px;
     width: 90%;
     max-width: 600px;
+    max-height: calc(100vh - 80px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.3);
     transform: translateY(-20px);
     opacity: 0;
     transition: all 0.3s ease;
+    overflow-y: auto;
+    margin: auto;
 }
 
 .settings-modal.active .settings-content {
@@ -854,6 +872,29 @@ html {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+/* Settings Sections */
+.settings-section {
+    padding: 20px;
+    background: rgba(248, 250, 252, 0.8);
+    border-radius: 12px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.settings-section h3 {
+    font-size: 1.2rem;
+    color: #374151;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.settings-section h3 i {
+    color: #667eea;
+    font-size: 1.1rem;
 }
 
 /* Code Section Styles */

@@ -48,6 +48,11 @@ class Settings(BaseModel):
     api_base_url: str
     main_llm: str
     error_llm: str
+    mysql_host: Optional[str] = None
+    mysql_port: Optional[str] = None
+    mysql_username: Optional[str] = None
+    mysql_password: Optional[str] = None
+    mysql_database: Optional[str] = None
 
 def get_available_datasets():
     """Get list of available datasets (names only) from the datasets folder."""
@@ -303,7 +308,12 @@ async def get_settings():
             "api_key": os.getenv("API_KEY", ""),
             "api_base_url": os.getenv("API_BASE_URL", ""),
             "main_llm": os.getenv("MAIN_LLM", ""),
-            "error_llm": os.getenv("ERROR_LLM", "")
+            "error_llm": os.getenv("ERROR_LLM", ""),
+            "mysql_host": os.getenv("MYSQL_HOST", ""),
+            "mysql_port": os.getenv("MYSQL_PORT", ""),
+            "mysql_username": os.getenv("MYSQL_USERNAME", ""),
+            "mysql_password": os.getenv("MYSQL_PASSWORD", ""),
+            "mysql_database": os.getenv("MYSQL_DATABASE", "")
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading settings: {str(e)}")
@@ -319,12 +329,32 @@ async def update_settings(settings: Settings):
         os.environ["API_BASE_URL"] = settings.api_base_url
         os.environ["MAIN_LLM"] = settings.main_llm
         os.environ["ERROR_LLM"] = settings.error_llm
+        if settings.mysql_host:
+            os.environ["MYSQL_HOST"] = settings.mysql_host
+        if settings.mysql_port:
+            os.environ["MYSQL_PORT"] = settings.mysql_port
+        if settings.mysql_username:
+            os.environ["MYSQL_USERNAME"] = settings.mysql_username
+        if settings.mysql_password:
+            os.environ["MYSQL_PASSWORD"] = settings.mysql_password
+        if settings.mysql_database:
+            os.environ["MYSQL_DATABASE"] = settings.mysql_database
         
         # Update .env file
         set_key(env_path, "API_KEY", settings.api_key)
         set_key(env_path, "API_BASE_URL", settings.api_base_url)
         set_key(env_path, "MAIN_LLM", settings.main_llm)
         set_key(env_path, "ERROR_LLM", settings.error_llm)
+        if settings.mysql_host:
+            set_key(env_path, "MYSQL_HOST", settings.mysql_host)
+        if settings.mysql_port:
+            set_key(env_path, "MYSQL_PORT", settings.mysql_port)
+        if settings.mysql_username:
+            set_key(env_path, "MYSQL_USERNAME", settings.mysql_username)
+        if settings.mysql_password:
+            set_key(env_path, "MYSQL_PASSWORD", settings.mysql_password)
+        if settings.mysql_database:
+            set_key(env_path, "MYSQL_DATABASE", settings.mysql_database)
         
         return {"message": "Settings updated successfully"}
     except Exception as e:
