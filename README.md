@@ -55,8 +55,7 @@ MYSQL_HOST=hostname_or_ip
 MYSQL_PORT=port_number  
 MYSQL_USERNAME=your_username
 MYSQL_PASSWORD=your_password
-#Optional: Set a default database to connect to
-MYSQL_DATABASE=your_default_database
+
 ```
 
 ### 3. Prepare Your Data Sources
