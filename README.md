@@ -51,10 +51,11 @@ MAIN_LLM=deepseek-ai/DeepSeek-R1
 ERROR_LLM=deepseek-ai/DeepSeek-R1
 
 # MySQL Configuration (Optional - can also be set via Settings UI)
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
+MYSQL_HOST=hostname_or_ip
+MYSQL_PORT=port_number  
 MYSQL_USERNAME=your_username
 MYSQL_PASSWORD=your_password
+#Optional: Set a default database to connect to
 MYSQL_DATABASE=your_default_database
 ```
 
