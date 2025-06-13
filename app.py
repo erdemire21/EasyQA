@@ -13,8 +13,12 @@ from utilities.code_execution import capture_exec_output
 from utilities.code_processing import clean_pandas_code, modify_dataset_paths
 from utilities.data_loading import read_dataset
 from utilities.data_preprocessing import preprocess_dataset, save_preprocessed_dataset
+from utilities.mysql_handler import MySQLHandler
+from utilities.sql_agents import generate_sql_query
 from dotenv import load_dotenv, set_key
 from pathlib import Path
+from sqlalchemy import text
+import datetime
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +33,11 @@ class QuestionRequest(BaseModel):
     question: str
     dataset: str
 
+class MySQLQuestionRequest(BaseModel):
+    question: str
+    database: str
+    table: str
+
 class QuestionResponse(BaseModel):
     answer: str
     generated_code: str
@@ -41,6 +50,11 @@ class Settings(BaseModel):
     api_base_url: str
     main_llm: str
     error_llm: str
+    mysql_host: Optional[str] = None
+    mysql_port: Optional[str] = None
+    mysql_username: Optional[str] = None
+    mysql_password: Optional[str] = None
+    mysql_database: Optional[str] = None
 
 def get_available_datasets():
     """Get list of available datasets (names only) from the datasets folder."""
@@ -203,6 +217,11 @@ async def read_root(request: Request):
         "datasets": datasets
     })
 
+@app.get("/mysql", response_class=HTMLResponse)
+async def mysql_page(request: Request):
+    """MySQL database connection and querying interface."""
+    return templates.TemplateResponse("mysql.html", {"request": request})
+
 @app.get("/api/datasets")
 async def get_datasets():
     """API endpoint to get available datasets."""
@@ -291,7 +310,12 @@ async def get_settings():
             "api_key": os.getenv("API_KEY", ""),
             "api_base_url": os.getenv("API_BASE_URL", ""),
             "main_llm": os.getenv("MAIN_LLM", ""),
-            "error_llm": os.getenv("ERROR_LLM", "")
+            "error_llm": os.getenv("ERROR_LLM", ""),
+            "mysql_host": os.getenv("MYSQL_HOST", ""),
+            "mysql_port": os.getenv("MYSQL_PORT", ""),
+            "mysql_username": os.getenv("MYSQL_USERNAME", ""),
+            "mysql_password": os.getenv("MYSQL_PASSWORD", ""),
+            "mysql_database": os.getenv("MYSQL_DATABASE", "")
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading settings: {str(e)}")
@@ -307,12 +331,32 @@ async def update_settings(settings: Settings):
         os.environ["API_BASE_URL"] = settings.api_base_url
         os.environ["MAIN_LLM"] = settings.main_llm
         os.environ["ERROR_LLM"] = settings.error_llm
+        if settings.mysql_host:
+            os.environ["MYSQL_HOST"] = settings.mysql_host
+        if settings.mysql_port:
+            os.environ["MYSQL_PORT"] = settings.mysql_port
+        if settings.mysql_username:
+            os.environ["MYSQL_USERNAME"] = settings.mysql_username
+        if settings.mysql_password:
+            os.environ["MYSQL_PASSWORD"] = settings.mysql_password
+        if settings.mysql_database:
+            os.environ["MYSQL_DATABASE"] = settings.mysql_database
         
         # Update .env file
         set_key(env_path, "API_KEY", settings.api_key)
         set_key(env_path, "API_BASE_URL", settings.api_base_url)
         set_key(env_path, "MAIN_LLM", settings.main_llm)
         set_key(env_path, "ERROR_LLM", settings.error_llm)
+        if settings.mysql_host:
+            set_key(env_path, "MYSQL_HOST", settings.mysql_host)
+        if settings.mysql_port:
+            set_key(env_path, "MYSQL_PORT", settings.mysql_port)
+        if settings.mysql_username:
+            set_key(env_path, "MYSQL_USERNAME", settings.mysql_username)
+        if settings.mysql_password:
+            set_key(env_path, "MYSQL_PASSWORD", settings.mysql_password)
+        if settings.mysql_database:
+            set_key(env_path, "MYSQL_DATABASE", settings.mysql_database)
         
         return {"message": "Settings updated successfully"}
     except Exception as e:
@@ -505,6 +549,195 @@ async def view_dataset(request: Request, dataset_name: str, page: int = 1, per_p
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error viewing dataset: {str(e)}")
+
+# MySQL API Endpoints
+@app.get("/api/mysql/test-connection")
+async def test_mysql_connection():
+    """Test MySQL connection."""
+    try:
+        mysql_handler = MySQLHandler()
+        success, message = mysql_handler.test_connection()
+        return {"success": success, "message": message}
+    except Exception as e:
+        return {"success": False, "message": f"Connection test failed: {str(e)}"}
+
+@app.get("/api/mysql/databases")
+async def get_mysql_databases():
+    """Get list of available MySQL databases."""
+    try:
+        mysql_handler = MySQLHandler()
+        databases = mysql_handler.get_databases()
+        return {"success": True, "databases": databases}
+    except Exception as e:
+        return {"success": False, "message": str(e), "databases": []}
+
+@app.get("/api/mysql/tables/{database_name}")
+async def get_mysql_tables(database_name: str):
+    """Get list of tables in a specific database."""
+    try:
+        mysql_handler = MySQLHandler()
+        tables = mysql_handler.get_tables(database_name)
+        return {"success": True, "tables": tables}
+    except Exception as e:
+        return {"success": False, "message": str(e), "tables": []}
+
+@app.get("/api/mysql/schema/{database_name}/{table_name}")
+async def get_mysql_table_schema(database_name: str, table_name: str):
+    """Get detailed schema for a specific table."""
+    try:
+        mysql_handler = MySQLHandler()
+        schema = mysql_handler.get_table_schema(table_name, database_name)
+        return {"success": True, "schema": schema}
+    except Exception as e:
+        return {"success": False, "message": str(e), "schema": {}}
+
+@app.get("/api/mysql/table-data/{database_name}/{table_name}")
+async def get_mysql_table_data(database_name: str, table_name: str, page: int = 1, per_page: int = 10):
+    """Get paginated table data for MySQL tables."""
+    try:
+        mysql_handler = MySQLHandler()
+        mysql_handler.connect_to_database(database_name)
+        
+        # Validate per_page parameter
+        valid_per_page_options = [10, 25, 100, 1000]
+        if per_page not in valid_per_page_options:
+            per_page = 10
+        
+        # Get total row count
+        with mysql_handler.engine.connect() as conn:
+            count_result = conn.execute(text(f"SELECT COUNT(*) FROM `{table_name}`"))
+            total_rows = count_result.fetchone()[0]
+        
+        # Calculate pagination
+        total_pages = max(1, (total_rows + per_page - 1) // per_page)
+        
+        # Validate page number
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+        
+        # Get data for current page
+        offset = (page - 1) * per_page
+        query = f"SELECT * FROM `{table_name}` LIMIT {per_page} OFFSET {offset}"
+        
+        df = pd.read_sql(query, mysql_handler.engine)
+        mysql_handler.close_connection()
+        
+        # Convert DataFrame to list of dictionaries for JSON response
+        columns = df.columns.tolist()
+        data_rows = []
+        
+        for _, row in df.iterrows():
+            row_data = []
+            for col in columns:
+                val = row[col]
+                # Handle different data types
+                if pd.isna(val):
+                    str_val = ""
+                elif isinstance(val, (pd.Timestamp, datetime.datetime)):
+                    str_val = str(val)
+                elif isinstance(val, (int, float)):
+                    str_val = str(val)
+                else:
+                    str_val = str(val)
+                    # Truncate if too long
+                    if len(str_val) > 50:
+                        str_val = str_val[:47] + "..."
+                row_data.append(str_val)
+            data_rows.append(row_data)
+        
+        return {
+            "success": True,
+            "data": {
+                "columns": columns,
+                "rows": data_rows,
+                "pagination": {
+                    "current_page": page,
+                    "total_pages": total_pages,
+                    "total_rows": total_rows,
+                    "per_page": per_page,
+                    "valid_per_page_options": valid_per_page_options
+                }
+            }
+        }
+        
+    except Exception as e:
+        return {"success": False, "message": str(e), "data": {}}
+
+@app.post("/api/mysql/ask")
+async def ask_mysql_question(mysql_request: MySQLQuestionRequest):
+    """Process a question about MySQL data."""
+    try:
+        if not mysql_request.question.strip():
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        
+        # Initialize MySQL handler and connect to database
+        mysql_handler = MySQLHandler()
+        mysql_handler.connect_to_database(mysql_request.database)
+        
+        # Get table schema for context
+        schema = mysql_handler.get_table_schema(mysql_request.table, mysql_request.database)
+        
+        # Generate SQL query using the dedicated SQL agent
+        sql_code = generate_sql_query(
+            question=mysql_request.question,
+            database_name=mysql_request.database,
+            table_name=mysql_request.table,
+            table_schema=schema
+        )
+        
+        # Execute the SQL query
+        df = mysql_handler.execute_query(sql_code)
+        
+        # Format the result intelligently
+        if df.empty:
+            answer = "No results found for your query."
+        else:
+            # Check if it's a simple single-value result (like COUNT, SUM, AVG)
+            if len(df) == 1 and len(df.columns) == 1:
+                # For single value results, just return the clean value
+                value = df.iloc[0, 0]
+                if pd.isna(value):
+                    answer = "NULL"
+                else:
+                    # Format numbers nicely
+                    if isinstance(value, (int, float)):
+                        if isinstance(value, float) and value.is_integer():
+                            answer = str(int(value))
+                        else:
+                            answer = str(value)
+                    else:
+                        answer = str(value)
+            # Check if it's a simple single-column result
+            elif len(df.columns) == 1 and len(df) <= 10:
+                # For single column results, show values without column header
+                values = df.iloc[:, 0].tolist()
+                answer = "\n".join(str(v) if not pd.isna(v) else "NULL" for v in values)
+            # For multi-column or larger results, show with headers
+            elif len(df) <= 10:
+                answer = df.to_string(index=False)
+            else:
+                answer = f"Found {len(df)} results. Here are the first 10:\n\n"
+                answer += df.head(10).to_string(index=False)
+                answer += f"\n\n... and {len(df) - 10} more rows."
+        
+        mysql_handler.close_connection()
+        
+        return {
+            "success": True,
+            "answer": answer,
+            "code": sql_code,
+            "rows_returned": len(df)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error processing question: {str(e)}",
+            "answer": "",
+            "code": ""
+        }
 
 if __name__ == "__main__":
     import uvicorn

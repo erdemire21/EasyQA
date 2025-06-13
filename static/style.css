@@ -107,6 +107,82 @@ body {
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
+/* Source Selection */
+.source-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-top: 20px;
+}
+
+.source-option {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border: 2px solid #e5e7eb;
+    border-radius: 15px;
+    padding: 30px 25px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.source-option:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+}
+
+.source-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.source-option h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 15px 0 10px 0;
+}
+
+.source-option p {
+    color: #6b7280;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    margin-bottom: 20px;
+}
+
+.source-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.source-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.source-btn.selected {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.source-btn.mysql-btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.source-btn.mysql-btn:hover {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
 /* Dataset Grid */
 .dataset-grid {
     display: grid;
@@ -623,6 +699,20 @@ body {
     .submit-btn {
         padding: 12px 25px;
     }
+    
+    .settings-modal {
+        padding: 20px 10px;
+    }
+    
+    .settings-content {
+        width: 95%;
+        padding: 20px;
+        max-height: calc(100vh - 40px);
+    }
+    
+    .settings-section {
+        padding: 15px;
+    }
 }
 
 /* Animation for cards appearing */
@@ -711,10 +801,11 @@ html {
     display: none;
     justify-content: center;
     align-items: flex-start;
-    padding-top: 80px;
+    padding: 40px 20px;
     z-index: 1000;
     opacity: 0;
     transition: opacity 0.3s ease;
+    overflow-y: auto;
 }
 
 .settings-modal.active {
@@ -729,11 +820,14 @@ html {
     padding: 30px;
     width: 90%;
     max-width: 600px;
+    max-height: calc(100vh - 80px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.3);
     transform: translateY(-20px);
     opacity: 0;
     transition: all 0.3s ease;
+    overflow-y: auto;
+    margin: auto;
 }
 
 .settings-modal.active .settings-content {
@@ -778,6 +872,29 @@ html {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+/* Settings Sections */
+.settings-section {
+    padding: 20px;
+    background: rgba(248, 250, 252, 0.8);
+    border-radius: 12px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.settings-section h3 {
+    font-size: 1.2rem;
+    color: #374151;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.settings-section h3 i {
+    color: #667eea;
+    font-size: 1.1rem;
 }
 
 /* Code Section Styles */

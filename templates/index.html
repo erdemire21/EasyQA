@@ -34,22 +34,52 @@
                     <button class="close-settings"><i class="fas fa-times"></i></button>
                 </div>
                 <form id="settingsForm" class="settings-form">
-                    <div class="input-group">
-                        <label for="apiKey">API Key</label>
-                        <input type="password" id="apiKey" name="apiKey" class="input-field" required>
+                    <!-- AI Configuration -->
+                    <div class="settings-section">
+                        <h3><i class="fas fa-brain"></i> AI Configuration</h3>
+                        <div class="input-group">
+                            <label for="apiKey">API Key</label>
+                            <input type="password" id="apiKey" name="apiKey" class="input-field" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="apiBaseUrl">API Base URL</label>
+                            <input type="url" id="apiBaseUrl" name="apiBaseUrl" class="input-field" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="mainLlm">Main LLM Model</label>
+                            <input type="text" id="mainLlm" name="mainLlm" class="input-field" required>
+                        </div>
+                        <div class="input-group">
+                            <label for="errorLlm">Error LLM Model</label>
+                            <input type="text" id="errorLlm" name="errorLlm" class="input-field" required>
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label for="apiBaseUrl">API Base URL</label>
-                        <input type="url" id="apiBaseUrl" name="apiBaseUrl" class="input-field" required>
+
+                    <!-- MySQL Configuration -->
+                    <div class="settings-section">
+                        <h3><i class="fas fa-database"></i> MySQL Configuration</h3>
+                        <div class="input-group">
+                            <label for="mysqlHost">MySQL Host</label>
+                            <input type="text" id="mysqlHost" name="mysqlHost" class="input-field" placeholder="localhost">
+                        </div>
+                        <div class="input-group">
+                            <label for="mysqlPort">MySQL Port</label>
+                            <input type="number" id="mysqlPort" name="mysqlPort" class="input-field" placeholder="3306">
+                        </div>
+                        <div class="input-group">
+                            <label for="mysqlUsername">MySQL Username</label>
+                            <input type="text" id="mysqlUsername" name="mysqlUsername" class="input-field" placeholder="root">
+                        </div>
+                        <div class="input-group">
+                            <label for="mysqlPassword">MySQL Password</label>
+                            <input type="password" id="mysqlPassword" name="mysqlPassword" class="input-field">
+                        </div>
+                        <div class="input-group">
+                            <label for="mysqlDatabase">Default Database (Optional)</label>
+                            <input type="text" id="mysqlDatabase" name="mysqlDatabase" class="input-field" placeholder="Leave empty to browse all databases">
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <label for="mainLlm">Main LLM Model</label>
-                        <input type="text" id="mainLlm" name="mainLlm" class="input-field" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="errorLlm">Error LLM Model</label>
-                        <input type="text" id="errorLlm" name="errorLlm" class="input-field" required>
-                    </div>
+
                     <button type="submit" class="submit-btn">
                         <span class="btn-text">Save Settings</span>
                         <div class="btn-spinner" style="display: none;">
@@ -62,8 +92,34 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Data Source Selection -->
+            <div class="card source-selection-card">
+                <h2 class="card-title">
+                    <span class="card-icon">🔗</span>
+                    Choose Data Source
+                </h2>
+                <div class="source-options">
+                    <div class="source-option" id="fileSourceOption">
+                        <div class="source-icon">📁</div>
+                        <h3>File Upload</h3>
+                        <p>Upload and analyze local datasets (.csv, .parquet, .json, .xlsx)</p>
+                        <button class="source-btn selected" id="selectFileSource">
+                            <i class="fas fa-check"></i> Selected
+                        </button>
+                    </div>
+                    <div class="source-option" id="mysqlSourceOption">
+                        <div class="source-icon">🗄️</div>
+                        <h3>MySQL Database</h3>
+                        <p>Connect to MySQL databases and query tables directly</p>
+                        <a href="/mysql" class="source-btn mysql-btn">
+                            <i class="fas fa-external-link-alt"></i> Connect to MySQL
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             <!-- Dataset Selection -->
-            <div class="card dataset-card">
+            <div class="card dataset-card" id="datasetCard">
                 <h2 class="card-title">
                     <span class="card-icon">📊</span>
                     Select Dataset
