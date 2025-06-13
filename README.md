@@ -55,7 +55,6 @@ MYSQL_HOST=hostname_or_ip
 MYSQL_PORT=port_number  
 MYSQL_USERNAME=your_username
 MYSQL_PASSWORD=your_password
-
 ```
 
 ### 3. Prepare Your Data Sources
