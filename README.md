@@ -1,6 +1,6 @@
-# QA-UI Web Interface
+# Easy-QA Web Interface
 
-A beautiful web interface for asking questions about your datasets using AI-powered code generation. **Now with MySQL database support!**
+A beautiful web interface for asking questions about your datasets using AI-powered code generation. **Now with advanced MySQL database support including multi-table queries!**
 
 ## 🌟 Features
 
@@ -15,11 +15,15 @@ A beautiful web interface for asking questions about your datasets using AI-powe
 ### MySQL Database Integration
 - **Direct Database Querying**: Connect to MySQL databases and query tables directly
 - **Progressive Disclosure UI**: Easy navigation from Database → Table → Questions
+- **Multi-Table Support**: Select and query multiple related tables simultaneously
+- **Relationship Highlighting**: Visual indicators show which tables are related
 - **Database Discovery**: Automatically discover available databases and tables
 - **Schema Analysis**: View table structure with column names, types, and row counts
-- **AI-Powered SQL Generation**: Natural language to SQL query conversion
+- **AI-Powered SQL Generation**: Natural language to SQL/JOIN query conversion
 - **Smart Result Formatting**: Clean, readable results with intelligent formatting
 - **Real-time Connections**: Test connections and browse databases live
+- **Table Data Viewer**: Browse actual table data with pagination
+- **Foreign Key Detection**: Automatic relationship discovery between tables
 
 ### User Experience
 - **Copy to Clipboard**: Easy copying of generated code and results
@@ -89,9 +93,14 @@ Navigate to: http://localhost:8000
 1. **Select "MySQL Database"** as your data source
 2. **Connect to MySQL**: You'll be taken to the MySQL interface
 3. **Choose Database**: Select from available databases
-4. **Choose Table**: Pick a table to analyze
-5. **Ask Questions**: Ask questions in natural language about your table data
-6. **Get SQL Results**: The AI generates SQL queries and shows formatted results
+4. **Choose Tables**: 
+   - **Single Table**: Pick one table to analyze
+   - **Multiple Tables**: Toggle to multi-table mode and select related tables
+   - **Relationship Hints**: See golden highlighting for tables related to your selection
+5. **Ask Questions**: Ask questions in natural language about your table(s)
+   - Single table: "How many records are in this table?"
+   - Multi-table: "How many albums does each artist have?"
+6. **Get SQL Results**: The AI generates SQL queries (including JOINs) and shows formatted results
 
 ### Example Questions:
 
@@ -102,10 +111,19 @@ Navigate to: http://localhost:8000
 - "What are the top 5 most common categories?"
 
 #### For MySQL Tables:
+
+**Single Table Queries:**
 - "How many records are in this table?"
 - "What are the most common values in the status column?"
 - "Show me the average salary by department"
 - "Find all entries where the date is after 2023-01-01"
+
+**Multi-Table Queries:**
+- "How many albums does each artist have?"
+- "Which artist has the most tracks?"
+- "Show me all customers and their total order amounts"
+- "What are the top 5 products by sales across all orders?"
+- "List all employees and their managers"
 
 ## 🛠 API Endpoints
 
@@ -125,7 +143,10 @@ Navigate to: http://localhost:8000
 - `GET /api/mysql/databases` - List available databases
 - `GET /api/mysql/tables/{database}` - List tables in a database
 - `GET /api/mysql/schema/{database}/{table}` - Get table schema
-- `POST /api/mysql/ask` - Ask a question about MySQL table
+- `GET /api/mysql/multi-schema/{database}?tables=table1,table2` - Get multi-table schema with relationships
+- `GET /api/mysql/table-data/{database}/{table}` - Get paginated table data
+- `POST /api/mysql/ask` - Ask a question about single MySQL table
+- `POST /api/mysql/ask-multi` - Ask a question about multiple MySQL tables
 
 ### Settings API
 - `GET /api/settings` - Get current settings
@@ -143,7 +164,7 @@ curl -X POST "http://localhost:8000/api/ask" \
      }'
 ```
 
-#### MySQL Query
+#### Single Table MySQL Query
 ```bash
 curl -X POST "http://localhost:8000/api/mysql/ask" \
      -H "Content-Type: application/json" \
@@ -151,6 +172,17 @@ curl -X POST "http://localhost:8000/api/mysql/ask" \
        "question": "How many people are in the forbes list?",
        "database": "final",
        "table": "forbes"
+     }'
+```
+
+#### Multi-Table MySQL Query
+```bash
+curl -X POST "http://localhost:8000/api/mysql/ask-multi" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "question": "How many albums does each artist have?",
+       "database": "chinook",
+       "tables": ["artist", "album"]
      }'
 ```
 
@@ -166,7 +198,11 @@ curl -X POST "http://localhost:8000/api/mysql/ask" \
 ### Interactive Elements
 - **Source Selection**: Toggle between file upload and MySQL database modes
 - **Dataset Cards**: Show real-time information (rows, columns, sample data)
-- **MySQL Flow**: Database → Table → Questions progression with clear visual feedback
+- **MySQL Flow**: Database → Table(s) → Questions progression with clear visual feedback
+- **Multi-Table Selection**: Toggle between single and multiple table modes
+- **Relationship Highlighting**: Golden highlighting with animations for related tables
+- **Interactive Tooltips**: Hover over related tables to see connection details
+- **Table Data Browser**: View actual table content with pagination controls
 - **Smart Forms**: Buttons enable only when all required fields are provided
 - **Loading States**: Visual feedback during processing
 - **Results Display**: Clean separation of answers and executed code
@@ -190,21 +226,23 @@ curl -X POST "http://localhost:8000/api/mysql/ask" \
 ### MySQL Database Analysis
 1. **Connection**: Establish connection using configured credentials
 2. **Database Discovery**: Browse available databases and tables
-3. **Schema Analysis**: Examine table structure (columns, types, row counts)
-4. **Question Processing**: Natural language question + table schema → LLM
-5. **SQL Generation**: LLM generates SQL query using MySQL syntax
-6. **Query Execution**: SQL executes against the live database
-7. **Result Formatting**: Smart formatting for different result types
-8. **Answer Display**: Clean, readable results with query shown
+3. **Table Selection**: Choose single or multiple tables with relationship detection
+4. **Schema Analysis**: Examine table structure (columns, types, row counts, relationships)
+5. **Question Processing**: Natural language question + table/multi-table schema → LLM
+6. **SQL Generation**: LLM generates SQL query (including JOINs for multi-table) using MySQL syntax
+7. **Query Execution**: SQL executes against the live database
+8. **Result Formatting**: Smart formatting for different result types
+9. **Answer Display**: Clean, readable results with query shown
 
 ## 🔧 Technical Details
 
 ### Backend (FastAPI)
 - **Async Processing**: Non-blocking question processing for both file and MySQL modes
 - **Error Recovery**: Multiple retry attempts with different LLMs
-- **Schema Generation**: Automatic dataset and database schema analysis
+- **Schema Generation**: Automatic dataset and database schema analysis with relationship detection
 - **Safe Code Execution**: Controlled environment for running generated code
-- **MySQL Integration**: SQLAlchemy-based connection management
+- **MySQL Integration**: SQLAlchemy-based connection management with multi-table support
+- **Relationship Detection**: Automatic foreign key relationship discovery
 - **Result Formatting**: Smart formatting for various data types
 
 ### Frontend (Vanilla JavaScript)
@@ -223,22 +261,22 @@ curl -X POST "http://localhost:8000/api/mysql/ask" \
 ## 📁 Project Structure
 
 ```
-QA-UI/
+Easy-QA/
 ├── app.py                    # Main FastAPI application
 ├── run.py                    # Simple startup script
 ├── requirements.txt          # Python dependencies (includes MySQL support)
 ├── .env                      # Environment configuration (create this)
 ├── templates/
 │   ├── index.html           # Main web interface (file upload mode)
-│   └── mysql.html           # MySQL database interface
+│   └── mysql.html           # MySQL database interface (with multi-table support)
 ├── static/
 │   ├── style.css            # Styles and animations
 │   ├── script.js            # File upload functionality
-│   └── mysql.js             # MySQL interface functionality
+│   └── mysql.js             # MySQL interface functionality (with relationship highlighting)
 ├── utilities/               # Core processing modules
 │   ├── agents.py            # LLM integration for pandas code
-│   ├── sql_agents.py        # LLM integration for SQL generation
-│   ├── mysql_handler.py     # MySQL connection and operations
+│   ├── sql_agents.py        # LLM integration for SQL generation (single & multi-table)
+│   ├── mysql_handler.py     # MySQL connection and operations (with relationship detection)
 │   ├── code_execution.py    # Safe code execution
 │   └── ...
 └── datasets/               # Your data files (.parquet / .csv / .json / .xlsx)
@@ -252,12 +290,13 @@ QA-UI/
 | Feature | File Upload Mode | MySQL Database Mode |
 |---------|------------------|---------------------|
 | **Data Source** | Local files (upload or pre-loaded) | Live MySQL database |
-| **Supported Formats** | .parquet, .csv, .json, .xlsx | Any MySQL table |
-| **Data Processing** | Pandas-based analysis | SQL query execution |
-| **Code Generation** | Python/pandas code | MySQL SQL queries |
+| **Supported Formats** | .parquet, .csv, .json, .xlsx | Any MySQL table(s) |
+| **Data Processing** | Pandas-based analysis | SQL query execution (single/multi-table) |
+| **Code Generation** | Python/pandas code | MySQL SQL queries (including JOINs) |
+| **Relationships** | N/A (single file) | Automatic foreign key detection |
 | **Data Size** | Limited by file size and memory | Limited by database performance |
 | **Real-time Data** | Static snapshots | Live, current data |
-| **Schema Discovery** | Automatic from file | Live from database |
+| **Schema Discovery** | Automatic from file | Live from database with relationships |
 | **Setup Required** | Just drop files in datasets/ | MySQL server + credentials |
 
 ## 🎯 Best Practices
@@ -324,16 +363,6 @@ Use the built-in connection test in the MySQL interface or via API:
 curl http://localhost:8000/api/mysql/test-connection
 ```
 
-## 🚀 New in This Version
-
-- **🗄️ MySQL Database Integration**: Full support for querying MySQL databases
-- **🔗 Dual Mode Interface**: Choose between file upload or database connection
-- **⚙️ Unified Settings**: Configure AI and MySQL settings in one place
-- **🎯 Progressive UI**: Clean database → table → questions flow
-- **🧠 SQL Generation**: AI-powered natural language to SQL conversion
-- **📊 Smart Formatting**: Intelligent result display for different data types
-- **🔒 Secure Connections**: Safe credential management and connection handling
-
 ## 🤝 Contributing
 
 Feel free to contribute improvements:
@@ -344,7 +373,7 @@ Feel free to contribute improvements:
 
 ## 📄 License
 
-This project maintains the same license as the original QA-UI project.
+This project maintains the same license as the original Easy-QA project.
 
 ---
 

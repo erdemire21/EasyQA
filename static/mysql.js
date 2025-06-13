@@ -4,9 +4,14 @@
 let mysqlState = {
     selectedDatabase: null,
     selectedTable: null,
+    selectedTables: [], // Array for multi-table selection
+    multiTableMode: false, // Flag for multi-table mode
     connectionStatus: false,
     currentStep: 'databases', // 'databases', 'tables', 'questions'
     currentSchema: null,
+    multiTableSchema: null, // Schema for multiple tables
+    tableRelationships: {}, // Store table relationships for highlighting
+    availableTables: [], // Store all available tables
     tableViewState: {
         currentPage: 1,
         perPage: 10,
@@ -52,6 +57,14 @@ const schemaColumnCount = document.getElementById('schemaColumnCount');
 const columnsTableBody = document.getElementById('columnsTableBody');
 const contextInfo = document.getElementById('contextInfo');
 
+// Multi-table elements
+const singleTableMode = document.getElementById('singleTableMode');
+const multiTableModeBtn = document.getElementById('multiTableMode');
+const selectedTablesInfo = document.getElementById('selectedTablesInfo');
+const selectedTablesList = document.getElementById('selectedTablesList');
+const selectedTablesCount = document.getElementById('selectedTablesCount');
+const continueMultiTable = document.getElementById('continueMultiTable');
+
 // Initialize the MySQL interface
 document.addEventListener('DOMContentLoaded', function() {
     initializeMySQLInterface();
@@ -88,8 +101,14 @@ function setupEventListeners() {
     backToTables.addEventListener('click', () => navigateToStep('tables'));
     
     // Question form
-    mysqlQuestionForm.addEventListener('submit', handleQuestionSubmit);
-    mysqlQuestion.addEventListener('input', updateSubmitButton);
+    mysqlQuestionForm.addEventListener('submit', handleQuestionSubmitMultiTable);
+    mysqlQuestion.addEventListener('input', () => {
+        if (mysqlState.multiTableMode && mysqlState.selectedTables.length > 1) {
+            updateSubmitButtonMultiTable();
+        } else {
+            updateSubmitButton();
+        }
+    });
     
     // Code toggle
     mysqlToggleCode.addEventListener('click', toggleMySQLCode);
@@ -128,6 +147,11 @@ function setupEventListeners() {
         mysqlState.tableViewState.currentPage = mysqlState.tableViewState.totalPages;
         loadTableData();
     });
+    
+    // Multi-table mode listeners
+    singleTableMode.addEventListener('click', () => setTableMode(false));
+    multiTableModeBtn.addEventListener('click', () => setTableMode(true));
+    continueMultiTable.addEventListener('click', proceedWithMultipleTables);
 }
 
 function showConnectionStatus(message, type) {
@@ -219,6 +243,14 @@ async function loadTables(database) {
         const result = await response.json();
         
         if (result.success && result.tables.length > 0) {
+            // Store available tables for relationship analysis
+            mysqlState.availableTables = result.tables;
+            
+            // Load relationship information for all tables if in multi-table mode
+            if (mysqlState.multiTableMode) {
+                await loadTableRelationships(database, result.tables.map(t => t.name));
+            }
+            
             displayTables(result.tables);
         } else {
             tableGrid.innerHTML = `
@@ -244,11 +276,17 @@ function displayTables(tables) {
     tables.forEach(table => {
         const tableItem = document.createElement('div');
         tableItem.className = 'table-item';
+        tableItem.dataset.tableName = table.name;
         
         const columnPreview = table.column_names.slice(0, 3).join(', ') + 
                              (table.column_names.length > 3 ? '...' : '');
         
+        // Add checkbox for multi-table mode
+        const checkboxHtml = mysqlState.multiTableMode ? 
+            `<input type="checkbox" class="table-item-checkbox" data-table="${table.name}">` : '';
+        
         tableItem.innerHTML = `
+            ${checkboxHtml}
             <div class="table-name">
                 <i class="fas fa-table table-icon"></i>
                 ${table.name}
@@ -262,7 +300,23 @@ function displayTables(tables) {
             </div>
         `;
         
-        tableItem.addEventListener('click', () => selectTable(table));
+        if (mysqlState.multiTableMode) {
+            tableItem.classList.add('multi-mode');
+            // Handle checkbox selection
+            const checkbox = tableItem.querySelector('.table-item-checkbox');
+            checkbox.addEventListener('change', (e) => handleTableSelection(e, table));
+            
+            // Still allow clicking on the item itself to toggle
+            tableItem.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('table-item-checkbox')) {
+                    checkbox.checked = !checkbox.checked;
+                    handleTableSelection({ target: checkbox }, table);
+                }
+            });
+        } else {
+            tableItem.addEventListener('click', () => selectTable(table));
+        }
+        
         tableGrid.appendChild(tableItem);
     });
 }
@@ -589,4 +643,361 @@ function updatePaginationControls(pagination) {
     prevBtn.disabled = isFirstPage;
     nextBtn.disabled = isLastPage;
     lastBtn.disabled = isLastPage;
-} 
+}
+
+// Multi-table Functions
+
+function handleTableSelection(event, table) {
+    const checkbox = event.target;
+    const tableItem = checkbox.closest('.table-item');
+    
+    if (checkbox.checked) {
+        // Add table to selection
+        if (!mysqlState.selectedTables.includes(table.name)) {
+            mysqlState.selectedTables.push(table.name);
+            tableItem.classList.add('multi-selected');
+        }
+    } else {
+        // Remove table from selection
+        const index = mysqlState.selectedTables.indexOf(table.name);
+        if (index > -1) {
+            mysqlState.selectedTables.splice(index, 1);
+            tableItem.classList.remove('multi-selected');
+        }
+    }
+    
+    // Update relationship highlighting
+    updateRelationshipHighlighting();
+    updateSelectedTablesDisplay();
+}
+
+function updateSelectedTablesDisplay() {
+    const count = mysqlState.selectedTables.length;
+    
+    if (count === 0) {
+        selectedTablesInfo.style.display = 'none';
+        continueMultiTable.style.display = 'none';
+    } else {
+        selectedTablesInfo.style.display = 'block';
+        selectedTablesList.textContent = mysqlState.selectedTables.join(', ');
+        selectedTablesCount.textContent = `${count} table${count !== 1 ? 's' : ''} selected`;
+        continueMultiTable.style.display = count > 1 ? 'inline-flex' : 'none';
+    }
+}
+
+async function proceedWithMultipleTables() {
+    if (mysqlState.selectedTables.length < 2) {
+        showError('Please select at least 2 tables for multi-table queries.');
+        return;
+    }
+    
+    try {
+        // Load multi-table schema
+        await loadMultiTableSchema(mysqlState.selectedDatabase, mysqlState.selectedTables);
+        
+        // Update UI for multi-table mode
+        updateBreadcrumbMultiTable('questions');
+        navigateToStep('questions');
+        
+        // Update context info
+        updateContextInfoMultiTable(mysqlState.selectedDatabase, mysqlState.selectedTables);
+        
+        // Update submit button validation
+        updateSubmitButtonMultiTable();
+        
+    } catch (error) {
+        showError(`Error loading multi-table schema: ${error.message}`);
+    }
+}
+
+async function loadMultiTableSchema(database, tableNames) {
+    try {
+        const tablesParam = tableNames.join(',');
+        const response = await fetch(`/api/mysql/multi-schema/${database}?tables=${tablesParam}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            displayMultiTableSchema(result.schema);
+            mysqlState.multiTableSchema = result.schema;
+        } else {
+            throw new Error(result.message || 'Failed to load multi-table schema');
+        }
+    } catch (error) {
+        throw new Error(`Failed to load multi-table schema: ${error.message}`);
+    }
+}
+
+function displayMultiTableSchema(schema) {
+    // Update header info for multi-table
+    schemaTableName.textContent = `${schema.database_name} (${schema.table_count} tables)`;
+    
+    let totalRows = 0;
+    let totalColumns = 0;
+    
+    Object.values(schema.tables).forEach(table => {
+        totalRows += table.row_count || 0;
+        totalColumns += table.columns ? table.columns.length : 0;
+    });
+    
+    schemaRowCount.textContent = `${totalRows.toLocaleString()} total rows`;
+    schemaColumnCount.textContent = `${totalColumns} total columns`;
+    
+    // Hide table view buttons for multi-table mode
+    document.getElementById('viewTableBtn').style.display = 'none';
+    document.getElementById('viewSchemaBtn').style.display = 'none';
+    
+    // Always show schema view for multi-table
+    document.getElementById('schemaView').style.display = 'block';
+    document.getElementById('tableDataView').style.display = 'none';
+    
+    // Build multi-table schema display
+    columnsTableBody.innerHTML = '';
+    
+    Object.entries(schema.tables).forEach(([tableName, tableSchema]) => {
+        // Add table header row
+        const tableHeaderRow = document.createElement('tr');
+        tableHeaderRow.style.backgroundColor = '#f8fafc';
+        tableHeaderRow.innerHTML = `
+            <td colspan="5" style="font-weight: bold; color: #374151; padding: 15px 12px;">
+                <i class="fas fa-table" style="color: #667eea; margin-right: 8px;"></i>
+                ${tableName} (${tableSchema.row_count?.toLocaleString() || 0} rows, ${tableSchema.columns?.length || 0} columns)
+            </td>
+        `;
+        columnsTableBody.appendChild(tableHeaderRow);
+        
+        // Add columns
+        if (tableSchema.columns) {
+            tableSchema.columns.forEach(column => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding-left: 30px;">
+                        ${column.primary_key ? '<i class="fas fa-key primary-key" title="Primary Key"></i>' : ''}
+                        <strong>${tableName}.${column.name}</strong>
+                    </td>
+                    <td><span class="column-type">${column.type}</span></td>
+                    <td>
+                        <span class="${column.nullable ? 'nullable' : 'not-nullable'}">
+                            ${column.nullable ? '✓ Yes' : '✗ No'}
+                        </span>
+                    </td>
+                    <td>${column.primary_key ? '<span class="primary-key">PRIMARY</span>' : ''}</td>
+                    <td>${column.default || '-'}</td>
+                `;
+                columnsTableBody.appendChild(row);
+            });
+        }
+        
+        // Add spacing between tables
+        const spacerRow = document.createElement('tr');
+        spacerRow.innerHTML = '<td colspan="5" style="height: 10px; border-bottom: none;"></td>';
+        columnsTableBody.appendChild(spacerRow);
+    });
+    
+    // Show relationships if any
+    if (schema.relationships && schema.relationships.length > 0) {
+        const relationshipsRow = document.createElement('tr');
+        relationshipsRow.style.backgroundColor = '#fef3c7';
+        relationshipsRow.innerHTML = `
+            <td colspan="5" style="font-weight: bold; color: #92400e; padding: 15px 12px;">
+                <i class="fas fa-link" style="margin-right: 8px;"></i>
+                Table Relationships
+            </td>
+        `;
+        columnsTableBody.appendChild(relationshipsRow);
+        
+        schema.relationships.forEach(rel => {
+            const relRow = document.createElement('tr');
+            const fromCols = rel.from_columns.join(', ');
+            const toCols = rel.to_columns.join(', ');
+            relRow.innerHTML = `
+                <td colspan="5" style="padding: 8px 30px; font-family: monospace; color: #374151;">
+                    <i class="fas fa-arrow-right" style="color: #f59e0b; margin: 0 8px;"></i>
+                    <strong>${rel.from_table}.${fromCols}</strong> → <strong>${rel.to_table}.${toCols}</strong>
+                </td>
+            `;
+            columnsTableBody.appendChild(relRow);
+        });
+    }
+}
+
+function updateContextInfoMultiTable(database, tables) {
+    contextInfo.innerHTML = `<strong>${database}</strong> (${tables.length} tables: ${tables.join(', ')})`;
+}
+
+function updateBreadcrumbMultiTable(step) {
+    const tablesList = mysqlState.selectedTables.join(', ');
+    const breadcrumbItems = {
+        'questions': `<div class="breadcrumb-item"><i class="fas fa-database"></i><span>${mysqlState.selectedDatabase}</span></div>
+                      <span class="breadcrumb-separator">→</span>
+                      <div class="breadcrumb-item"><i class="fas fa-layer-group"></i><span>${mysqlState.selectedTables.length} Tables</span></div>
+                      <span class="breadcrumb-separator">→</span>
+                      <div class="breadcrumb-item active"><i class="fas fa-question"></i><span>Ask Questions</span></div>`
+    };
+    
+    breadcrumb.innerHTML = breadcrumbItems[step] || breadcrumbItems['questions'];
+}
+
+function updateSubmitButtonMultiTable() {
+    const question = mysqlQuestion.value.trim();
+    const hasData = mysqlState.selectedDatabase && mysqlState.selectedTables.length > 0;
+    mysqlSubmitBtn.disabled = !question || !hasData;
+}
+
+// Update the main handleQuestionSubmit to support multi-table
+async function handleQuestionSubmitMultiTable(e) {
+    e.preventDefault();
+    
+    const question = mysqlQuestion.value.trim();
+    if (!question) return;
+    
+    // Check if we're in multi-table mode
+    if (mysqlState.multiTableMode && mysqlState.selectedTables.length > 1) {
+        if (!mysqlState.selectedDatabase || mysqlState.selectedTables.length === 0) {
+            showError('Please select a database and tables first.');
+            return;
+        }
+        
+        setMySQLLoadingState(true);
+        hideResults();
+        
+        try {
+            const response = await fetch('/api/mysql/ask-multi', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question: question,
+                    database: mysqlState.selectedDatabase,
+                    tables: mysqlState.selectedTables
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showMySQLResults(result);
+            } else {
+                showError(result.message || 'Unknown error occurred');
+            }
+        } catch (error) {
+            showError(`Request failed: ${error.message}`);
+        } finally {
+            setMySQLLoadingState(false);
+        }
+    } else {
+        // Single table mode - use existing function
+        return handleQuestionSubmit(e);
+    }
+}
+
+// Relationship highlighting functions
+async function loadTableRelationships(database, tableNames) {
+    try {
+        // Get all possible relationships by testing all table combinations
+        const tablesParam = tableNames.join(',');
+        const response = await fetch(`/api/mysql/multi-schema/${database}?tables=${tablesParam}`);
+        const result = await response.json();
+        
+        if (result.success && result.schema.relationships) {
+            // Build relationship map
+            mysqlState.tableRelationships = {};
+            
+            result.schema.relationships.forEach(rel => {
+                // Add bidirectional relationships
+                if (!mysqlState.tableRelationships[rel.from_table]) {
+                    mysqlState.tableRelationships[rel.from_table] = new Set();
+                }
+                if (!mysqlState.tableRelationships[rel.to_table]) {
+                    mysqlState.tableRelationships[rel.to_table] = new Set();
+                }
+                
+                mysqlState.tableRelationships[rel.from_table].add(rel.to_table);
+                mysqlState.tableRelationships[rel.to_table].add(rel.from_table);
+            });
+        }
+    } catch (error) {
+        console.log('Could not load relationship information:', error.message);
+    }
+}
+
+function updateRelationshipHighlighting() {
+    if (!mysqlState.multiTableMode || mysqlState.selectedTables.length === 0) {
+        // Clear all relationship highlighting
+        document.querySelectorAll('.table-item').forEach(item => {
+            item.classList.remove('has-relationship');
+            const tooltip = item.querySelector('.relationship-tooltip');
+            if (tooltip) {
+                tooltip.remove();
+            }
+        });
+        return;
+    }
+    
+    // Get all related tables for currently selected tables
+    const relatedTables = new Set();
+    const relationshipDetails = {};
+    
+    mysqlState.selectedTables.forEach(selectedTable => {
+        if (mysqlState.tableRelationships[selectedTable]) {
+            mysqlState.tableRelationships[selectedTable].forEach(relatedTable => {
+                if (!mysqlState.selectedTables.includes(relatedTable)) {
+                    relatedTables.add(relatedTable);
+                    if (!relationshipDetails[relatedTable]) {
+                        relationshipDetails[relatedTable] = new Set();
+                    }
+                    relationshipDetails[relatedTable].add(selectedTable);
+                }
+            });
+        }
+    });
+    
+    // Update all table items
+    document.querySelectorAll('.table-item').forEach(item => {
+        const tableName = item.dataset.tableName;
+        
+        // Remove existing relationship highlighting and tooltips
+        item.classList.remove('has-relationship');
+        const existingTooltip = item.querySelector('.relationship-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        
+        // Add relationship highlighting if this table is related to selected tables
+        if (relatedTables.has(tableName)) {
+            item.classList.add('has-relationship');
+            
+            // Create relationship tooltip
+            const relatedToTables = Array.from(relationshipDetails[tableName]);
+            const tooltip = document.createElement('div');
+            tooltip.className = 'relationship-tooltip';
+            tooltip.textContent = `Related to: ${relatedToTables.join(', ')}`;
+            item.appendChild(tooltip);
+        }
+    });
+}
+
+function setTableMode(isMultiMode) {
+    mysqlState.multiTableMode = isMultiMode;
+    mysqlState.selectedTables = [];
+    
+    // Update UI
+    singleTableMode.classList.toggle('active', !isMultiMode);
+    multiTableModeBtn.classList.toggle('active', isMultiMode);
+    
+    // Hide/show multi-table info
+    selectedTablesInfo.style.display = isMultiMode ? 'block' : 'none';
+    continueMultiTable.style.display = 'none';
+    
+    // Clear relationship highlighting when switching modes
+    if (!isMultiMode) {
+        updateRelationshipHighlighting();
+    }
+    
+    // Reload tables with new mode
+    if (mysqlState.selectedDatabase) {
+        loadTables(mysqlState.selectedDatabase);
+    }
+    
+    updateSelectedTablesDisplay();
+}

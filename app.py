@@ -14,7 +14,7 @@ from utilities.code_processing import clean_pandas_code, modify_dataset_paths
 from utilities.data_loading import read_dataset
 from utilities.data_preprocessing import preprocess_dataset, save_preprocessed_dataset
 from utilities.mysql_handler import MySQLHandler
-from utilities.sql_agents import generate_sql_query
+from utilities.sql_agents import generate_sql_query, generate_multi_table_sql_query
 from dotenv import load_dotenv, set_key
 from pathlib import Path
 from sqlalchemy import text
@@ -23,7 +23,7 @@ import datetime
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="QA-UI Dataset Question Answering", version="1.0.0")
+app = FastAPI(title="Easy-QA Dataset Question Answering", version="1.0.0")
 
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -37,6 +37,11 @@ class MySQLQuestionRequest(BaseModel):
     question: str
     database: str
     table: str
+
+class MySQLMultiTableQuestionRequest(BaseModel):
+    question: str
+    database: str
+    tables: List[str]
 
 class QuestionResponse(BaseModel):
     answer: str
@@ -665,6 +670,22 @@ async def get_mysql_table_data(database_name: str, table_name: str, page: int = 
     except Exception as e:
         return {"success": False, "message": str(e), "data": {}}
 
+@app.get("/api/mysql/multi-schema/{database_name}")
+async def get_mysql_multi_table_schema(database_name: str, tables: str):
+    """Get detailed schema for multiple tables with relationships."""
+    try:
+        # Parse table names from comma-separated string
+        table_names = [table.strip() for table in tables.split(',') if table.strip()]
+        
+        if not table_names:
+            return {"success": False, "message": "No tables specified", "schema": {}}
+        
+        mysql_handler = MySQLHandler()
+        schema = mysql_handler.get_multi_table_schema(table_names, database_name)
+        return {"success": True, "schema": schema}
+    except Exception as e:
+        return {"success": False, "message": str(e), "schema": {}}
+
 @app.post("/api/mysql/ask")
 async def ask_mysql_question(mysql_request: MySQLQuestionRequest):
     """Process a question about MySQL data."""
@@ -737,6 +758,85 @@ async def ask_mysql_question(mysql_request: MySQLQuestionRequest):
             "message": f"Error processing question: {str(e)}",
             "answer": "",
             "code": ""
+        }
+
+@app.post("/api/mysql/ask-multi")
+async def ask_mysql_multi_table_question(mysql_request: MySQLMultiTableQuestionRequest):
+    """Process a question about multiple MySQL tables."""
+    try:
+        if not mysql_request.question.strip():
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        
+        if not mysql_request.tables:
+            raise HTTPException(status_code=400, detail="At least one table must be specified")
+        
+        # Initialize MySQL handler and connect to database
+        mysql_handler = MySQLHandler()
+        mysql_handler.connect_to_database(mysql_request.database)
+        
+        # Get multi-table schema for context
+        schema = mysql_handler.get_multi_table_schema(mysql_request.tables, mysql_request.database)
+        
+        # Generate SQL query using the dedicated SQL agent with multi-table context
+        sql_code = generate_multi_table_sql_query(
+            question=mysql_request.question,
+            database_name=mysql_request.database,
+            table_names=mysql_request.tables,
+            multi_table_schema=schema
+        )
+        
+        # Execute the SQL query
+        df = mysql_handler.execute_query(sql_code)
+        
+        # Format the result intelligently (same as single table)
+        if df.empty:
+            answer = "No results found for your query."
+        else:
+            # Check if it's a simple single-value result (like COUNT, SUM, AVG)
+            if len(df) == 1 and len(df.columns) == 1:
+                # For single value results, just return the clean value
+                value = df.iloc[0, 0]
+                if pd.isna(value):
+                    answer = "NULL"
+                else:
+                    # Format numbers nicely
+                    if isinstance(value, (int, float)):
+                        if isinstance(value, float) and value.is_integer():
+                            answer = str(int(value))
+                        else:
+                            answer = str(value)
+                    else:
+                        answer = str(value)
+            # Check if it's a simple single-column result
+            elif len(df.columns) == 1 and len(df) <= 10:
+                # For single column results, show values without column header
+                values = df.iloc[:, 0].tolist()
+                answer = "\n".join(str(v) if not pd.isna(v) else "NULL" for v in values)
+            # For multi-column or larger results, show with headers
+            elif len(df) <= 10:
+                answer = df.to_string(index=False)
+            else:
+                answer = f"Found {len(df)} results. Here are the first 10:\n\n"
+                answer += df.head(10).to_string(index=False)
+                answer += f"\n\n... and {len(df) - 10} more rows."
+        
+        mysql_handler.close_connection()
+        
+        return {
+            "success": True,
+            "answer": answer,
+            "code": sql_code,
+            "rows_returned": len(df),
+            "tables_used": mysql_request.tables
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error processing multi-table question: {str(e)}",
+            "answer": "",
+            "code": "",
+            "tables_used": mysql_request.tables if hasattr(mysql_request, 'tables') else []
         }
 
 if __name__ == "__main__":

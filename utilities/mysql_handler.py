@@ -266,6 +266,66 @@ class MySQLHandler:
         except SQLAlchemyError as e:
             raise Exception(f"Failed to preview table '{table_name}': {str(e)}")
     
+    def get_multi_table_schema(self, table_names: List[str], database_name: str = None) -> Dict[str, any]:
+        """Get detailed schema information for multiple tables with relationship analysis."""
+        if not database_name:
+            database_name = self.current_database
+        
+        if not database_name:
+            raise Exception("No database selected")
+        
+        try:
+            # Ensure we're connected to the right database
+            if self.current_database != database_name:
+                self.connect_to_database(database_name)
+            
+            inspector = inspect(self.engine)
+            
+            # Get schemas for all tables
+            table_schemas = {}
+            for table_name in table_names:
+                schema = self.get_table_schema(table_name, database_name)
+                table_schemas[table_name] = schema
+            
+            # Detect relationships between tables
+            relationships = self._detect_table_relationships(table_names, inspector)
+            
+            return {
+                'database_name': database_name,
+                'tables': table_schemas,
+                'relationships': relationships,
+                'table_count': len(table_names)
+            }
+        except SQLAlchemyError as e:
+            raise Exception(f"Failed to get multi-table schema: {str(e)}")
+    
+    def _detect_table_relationships(self, table_names: List[str], inspector) -> List[Dict[str, str]]:
+        """Detect foreign key relationships between selected tables."""
+        relationships = []
+        
+        try:
+            for table_name in table_names:
+                # Get foreign keys for this table
+                foreign_keys = inspector.get_foreign_keys(table_name)
+                
+                for fk in foreign_keys:
+                    referred_table = fk['referred_table']
+                    # Only include relationships where both tables are selected
+                    if referred_table in table_names:
+                        relationship = {
+                            'from_table': table_name,
+                            'to_table': referred_table,
+                            'from_columns': fk['constrained_columns'],
+                            'to_columns': fk['referred_columns'],
+                            'constraint_name': fk.get('name', 'unnamed')
+                        }
+                        relationships.append(relationship)
+        except Exception as e:
+            # If relationship detection fails, continue without relationships
+            pass
+        
+        return relationships
+    
     def close_connection(self):
         """Close the database connection."""
         if self.engine:

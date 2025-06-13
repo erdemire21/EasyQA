@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple script to run the QA-UI application
+Simple script to run the Easy-QA application
 """
 
 import uvicorn
@@ -17,7 +17,7 @@ if __name__ == "__main__":
         print("ERROR_LLM=deepseek-ai/DeepSeek-R1")
         print()
     
-    print("🧠 Starting QA-UI Dataset Question Answering System...")
+    print("🧠 Starting Easy-QA Dataset Question Answering System...")
     print("📊 Available datasets will be loaded from the 'datasets' folder")
     print("🌐 Server will be available at: http://localhost:8000")
     print("🛑 Press Ctrl+C to stop the server")
