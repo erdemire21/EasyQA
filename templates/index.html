@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QA-UI - Dataset Question Answering</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -12,13 +13,52 @@
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <h1 class="logo">
-                    <span class="logo-icon">🧠</span>
-                    <span class="logo-text">QA-UI</span>
-                </h1>
+                <div class="header-top">
+                    <h1 class="logo">
+                        <span class="logo-icon">🧠</span>
+                        <span class="logo-text">QA-UI</span>
+                    </h1>
+                    <button id="settingsBtn" class="settings-btn" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
                 <p class="subtitle">Ask questions about your datasets using AI</p>
             </div>
         </header>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="settings-modal">
+            <div class="settings-content">
+                <div class="settings-header">
+                    <h2><i class="fas fa-cog"></i> Settings</h2>
+                    <button class="close-settings"><i class="fas fa-times"></i></button>
+                </div>
+                <form id="settingsForm" class="settings-form">
+                    <div class="input-group">
+                        <label for="apiKey">API Key</label>
+                        <input type="password" id="apiKey" name="apiKey" class="input-field" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="apiBaseUrl">API Base URL</label>
+                        <input type="url" id="apiBaseUrl" name="apiBaseUrl" class="input-field" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="mainLlm">Main LLM Model</label>
+                        <input type="text" id="mainLlm" name="mainLlm" class="input-field" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="errorLlm">Error LLM Model</label>
+                        <input type="text" id="errorLlm" name="errorLlm" class="input-field" required>
+                    </div>
+                    <button type="submit" class="submit-btn">
+                        <span class="btn-text">Save Settings</span>
+                        <div class="btn-spinner" style="display: none;">
+                            <div class="spinner"></div>
+                        </div>
+                    </button>
+                </form>
+            </div>
+        </div>
 
         <!-- Main Content -->
         <main class="main-content">
@@ -28,6 +68,15 @@
                     <span class="card-icon">📊</span>
                     Select Dataset
                 </h2>
+                <div class="dataset-upload-area" id="datasetUploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="upload-text">Drag & drop a dataset file here or</p>
+                    <label for="fileUpload" class="upload-btn">Browse Files</label>
+                    <input type="file" id="fileUpload" class="file-input" accept=".parquet,.csv,.json,.xlsx" hidden>
+                    <p class="upload-formats">Supported formats: .parquet, .csv, .json, .xlsx</p>
+                </div>
                 <div class="dataset-grid">
                     {% for dataset in datasets %}
                     <div class="dataset-item" data-dataset="{{ dataset }}">
@@ -57,7 +106,7 @@
                                   placeholder="e.g., How many unique values are in the name column?" 
                                   rows="3"></textarea>
                     </div>
-                    <button type="submit" class="submit-btn" disabled>
+                    <button type="submit" class="submit-btn question-submit-btn" disabled>
                         <span class="btn-text">Ask Question</span>
                         <div class="btn-spinner" style="display: none;">
                             <div class="spinner"></div>
@@ -78,8 +127,20 @@
                         <div class="answer-box" id="answerBox"></div>
                     </div>
                     <div class="code-section">
-                        <h3>Generated Code:</h3>
-                        <pre class="code-box" id="codeBox"></pre>
+                        <div class="code-header">
+                            <h3>Executed Code:</h3>
+                            <div class="code-actions">
+                                <button class="toggle-code" title="Toggle Code">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="code-container">
+                            <button class="copy-code" title="Copy Code">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <pre class="code-box collapsed" id="codeBox"></pre>
+                        </div>
                     </div>
                 </div>
             </div>

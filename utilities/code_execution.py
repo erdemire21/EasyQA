@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from contextlib import redirect_stdout
 from tqdm import tqdm
-from .code_processing import clean_pandas_code, modify_parquet_paths
+from .code_processing import clean_pandas_code, modify_dataset_paths
 
 
 def capture_exec_output(code):
@@ -120,7 +120,7 @@ def execute_pandas_code(data, dataset_folder_path="../datasets/", is_sample=Fals
 
     Args:
         data (list): A list of dictionaries containing pandas code under the 'pandas_code' key.
-        dataset_folder_path (str): The path to fix in the parquet files.
+        dataset_folder_path (str): The path to fix in the dataset files.
         is_sample (bool): Flag to determine whether to use sample datasets.
 
     Returns:
@@ -131,8 +131,8 @@ def execute_pandas_code(data, dataset_folder_path="../datasets/", is_sample=Fals
         raw_code = entry.get('pandas_code', '')
         cleaned_code = clean_pandas_code(raw_code)
 
-        # Modify the parquet paths and execute the code
-        modified_code = modify_parquet_paths(cleaned_code, dataset_folder_path=dataset_folder_path, is_sample=is_sample)
+        # Modify the dataset paths and execute the code
+        modified_code = modify_dataset_paths(cleaned_code, dataset_folder_path=dataset_folder_path, is_sample=is_sample)
         result = capture_exec_output(modified_code)
         entry['final_answer'] = result
 

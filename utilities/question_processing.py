@@ -1,11 +1,12 @@
 import traceback
+from typing import Dict, Any
 from .agents import get_pandas_code
 from .error_handling import classify_error
-from .code_processing import clean_pandas_code, modify_parquet_paths
+from .code_processing import clean_pandas_code, modify_dataset_paths
 from .code_execution import capture_exec_output
 
 
-def process_question(question_data, schemas, dataset_folder_path, max_retries=1):
+def process_question(question_data: Dict[str, Any], schemas: Dict[str, Any], dataset_folder_path: str = "datasets/", max_retries: int = 1) -> Dict[str, Any]:
     """Process a single question to generate pandas code with error checking and retrying."""
     # initialize per-question error history
     question_data.setdefault("error_history", [])
@@ -27,7 +28,7 @@ def process_question(question_data, schemas, dataset_folder_path, max_retries=1)
         original_code = clean_pandas_code(pandas_code)
         
         # Test the code on full dataset
-        modified_code = modify_parquet_paths(pandas_code, dataset_folder_path=dataset_folder_path, is_sample=False)
+        modified_code = modify_dataset_paths(pandas_code, dataset_folder_path=dataset_folder_path, is_sample=False)
         modified_code = clean_pandas_code(modified_code)
         retries = 0
 
@@ -83,7 +84,7 @@ def process_question(question_data, schemas, dataset_folder_path, max_retries=1)
                 # Update original code with the new code from LLM
                 original_code = clean_pandas_code(pandas_code)
                 
-                modified_code = modify_parquet_paths(
+                modified_code = modify_dataset_paths(
                     pandas_code,
                     dataset_folder_path=dataset_folder_path,
                     is_sample=False

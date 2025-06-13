@@ -6,6 +6,7 @@ A beautiful web interface for asking questions about your datasets using AI-powe
 
 - **Interactive Web UI**: Beautiful, modern interface with responsive design
 - **Real-time Dataset Information**: Automatically loads dataset info (rows, columns, sample data)
+- **Multi-format Dataset Support**: Works with Parquet, CSV, JSON **and** Excel (XLSX) files
 - **AI-Powered Code Generation**: Uses LLMs to generate pandas code for answering questions
 - **Error Recovery**: Automatic retry with error correction
 - **Live Code Execution**: Executes generated code and shows results instantly
@@ -20,6 +21,8 @@ A beautiful web interface for asking questions about your datasets using AI-powe
 pip install -r requirements.txt
 ```
 
+The requirements file now includes `openpyxl` for Excel file support. No extra steps are needed.
+
 ### 2. Configure Environment
 Create a `.env` file in the root directory:
 ```env
@@ -30,7 +33,7 @@ ERROR_LLM=deepseek-ai/DeepSeek-R1
 ```
 
 ### 3. Prepare Your Datasets
-Place your parquet files in the `datasets/` folder. The following datasets are included:
+Place any of the supported data files (`.parquet`, `.csv`, `.json`, `.xlsx`) in the `datasets/` folder. A few sample parquet datasets are included for convenience:
 - `050_ING.parquet`
 - `051_Pokemon.parquet` 
 - `052_Professional.parquet`
@@ -51,7 +54,7 @@ Navigate to: http://localhost:8000
 1. **Select a Dataset**: Click on any dataset card to select it
 2. **Ask a Question**: Type your question in natural language
 3. **Get Answers**: The AI will generate code and execute it automatically
-4. **View Results**: See both the answer and the generated code
+4. **View Results**: See both the answer and the *executed* code (the exact code that actually ran)
 
 ### Example Questions:
 - "How many unique values are in the name column?"
@@ -92,7 +95,7 @@ curl -X POST "http://localhost:8000/api/ask" \
 - **Dataset Cards**: Show real-time information (rows, columns, sample data)
 - **Smart Form**: Button enables only when both dataset and question are provided
 - **Loading States**: Visual feedback during processing
-- **Results Display**: Clean separation of answers and generated code
+- **Results Display**: Clean separation of answers and the executed code
 - **Error Handling**: User-friendly error messages
 
 ### Keyboard Shortcuts
@@ -145,7 +148,7 @@ QA-UI/
 │   ├── agents.py         # LLM integration
 │   ├── code_execution.py # Safe code execution
 │   └── ...
-└── datasets/            # Your parquet files
+└── datasets/            # Your data files (.parquet / .csv / .json / .xlsx)
     ├── 050_ING.parquet
     ├── 051_Pokemon.parquet
     └── ...
@@ -196,9 +199,9 @@ QA-UI/
 - Try simpler questions first
 
 **No datasets showing:**
-- Ensure parquet files are in the `datasets/` folder
+- Ensure your data files are in the `datasets/` folder
 - Check file permissions
-- Verify files are valid parquet format
+- Verify files are in a valid format (.parquet / .csv / .json / .xlsx)
 
 ### Debug Mode
 Run with debug logging:
