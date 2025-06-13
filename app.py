@@ -23,7 +23,7 @@ import datetime
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="QA-UI Dataset Question Answering", version="1.0.0")
+app = FastAPI(title="Easy-QA Dataset Question Answering", version="1.0.0")
 
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
