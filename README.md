@@ -201,7 +201,7 @@ QA-UI/
 **No datasets showing:**
 - Ensure your data files are in the `datasets/` folder
 - Check file permissions
-- Verify files are valid parquet format
+- Verify files are in a valid format (.parquet / .csv / .json / .xlsx)
 
 ### Debug Mode
 Run with debug logging:
