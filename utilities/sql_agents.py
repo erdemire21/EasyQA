@@ -41,18 +41,38 @@ def generate_sql_query(
     str: Generated SQL query
     """
     
-    # Build schema context
-    schema_context = f"Database: {database_name}\nTable: {table_name}\n"
-    schema_context += f"Row Count: {table_schema.get('row_count', 'Unknown')}\n\nColumns:\n"
+    # Build schema context with rich column value information
+    schema_context = f"Here are the columns for the {database_name}.{table_name} table:\n"
+    schema_context += f"Table: {table_name}, Database: {database_name}, Row Count: {table_schema.get('row_count', 'Unknown')}\n\n"
     
     for col in table_schema.get('columns', []):
-        schema_context += f"- {col['name']} ({col['type']}) "
+        col_name = col['name']
+        col_type = col['type']
+        
+        # Format example values similar to pandas schema
+        example_values = col.get('example_values', [])
+        if example_values:
+            example_values_str = ", ".join(example_values)
+        else:
+            example_values_str = "No examples available"
+        
+        total_unique = col.get('total_unique', 0)
+        
+        # Build constraint information
+        constraints = []
         if col.get('primary_key'):
-            schema_context += "PRIMARY KEY "
-        schema_context += "NULL" if col.get('nullable') else "NOT NULL"
+            constraints.append("PRIMARY KEY")
+        if not col.get('nullable'):
+            constraints.append("NOT NULL")
         if col.get('default'):
-            schema_context += f" DEFAULT {col['default']}"
-        schema_context += "\n"
+            constraints.append(f"DEFAULT {col['default']}")
+        
+        constraint_str = f" [{', '.join(constraints)}]" if constraints else ""
+        
+        # Format line similar to pandas: "Column Name: name, Data type -- type, -- Example values: values, Total unique elements: count"
+        line = (f"Column Name: {col_name}, Data type -- {col_type}{constraint_str}, "
+                f"-- Example values: {example_values_str}, Total unique elements: {total_unique}")
+        schema_context += line + "\n"
     
     # Create the prompt
     instructions = """

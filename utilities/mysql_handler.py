@@ -128,7 +128,7 @@ class MySQLHandler:
             raise Exception(f"Failed to retrieve tables: {str(e)}")
     
     def get_table_schema(self, table_name: str, database_name: str = None) -> Dict[str, any]:
-        """Get detailed schema information for a table."""
+        """Get detailed schema information for a table with column value context."""
         if not database_name:
             database_name = self.current_database
         
@@ -153,16 +153,74 @@ class MySQLHandler:
                 # Get row count
                 count_result = conn.execute(text(f"SELECT COUNT(*) FROM `{table_name}`"))
                 row_count = count_result.fetchone()[0]
+                
+                # Get column names for value analysis
+                column_names = [col['name'] for col in columns]
             
-            # Format column information
+            # Format column information with value context
             column_info = []
-            for col in columns:
+            for i, col in enumerate(columns):
+                col_name = col['name']
+                col_type = str(col['type'])
+                
+                # Get example values and unique count for this column
+                try:
+                    with self.engine.connect() as conn:
+                        # Get distinct values with limit for performance
+                        distinct_query = f"""
+                        SELECT DISTINCT `{col_name}` 
+                        FROM `{table_name}` 
+                        WHERE `{col_name}` IS NOT NULL 
+                        LIMIT 5
+                        """
+                        distinct_result = conn.execute(text(distinct_query))
+                        distinct_values = [str(row[0]) for row in distinct_result.fetchall()]
+                        
+                        # Get total unique count (with reasonable limit for performance)
+                        count_query = f"""
+                        SELECT COUNT(DISTINCT `{col_name}`) 
+                        FROM `{table_name}` 
+                        WHERE `{col_name}` IS NOT NULL
+                        """
+                        unique_count_result = conn.execute(text(count_query))
+                        total_unique = unique_count_result.fetchone()[0]
+                        
+                        # Process example values similar to pandas approach
+                        limited_values = distinct_values[:5]
+                        processed_values = []
+                        cumulative_char_count = 0
+                        
+                        for value in limited_values:
+                            if cumulative_char_count > 50:
+                                break
+                            if len(str(value)) > 100:
+                                value = str(value)[:97] + "..."
+                            processed_values.append(str(value))
+                            cumulative_char_count += len(str(value))
+                        
+                        example_values = processed_values
+                        
+                except Exception as e:
+                    # Fallback: use sample data if available
+                    example_values = []
+                    total_unique = 0
+                    if sample_data and i < len(sample_data[0]):
+                        for row in sample_data:
+                            if i < len(row) and row[i] is not None:
+                                val = str(row[i])
+                                if len(val) > 100:
+                                    val = val[:97] + "..."
+                                example_values.append(val)
+                        total_unique = len(set(example_values)) if example_values else 0
+                
                 col_info = {
-                    'name': col['name'],
-                    'type': str(col['type']),
+                    'name': col_name,
+                    'type': col_type,
                     'nullable': col['nullable'],
                     'default': col['default'],
-                    'primary_key': col.get('primary_key', False)
+                    'primary_key': col.get('primary_key', False),
+                    'example_values': example_values,
+                    'total_unique': total_unique
                 }
                 column_info.append(col_info)
             
