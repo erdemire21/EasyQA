@@ -10,6 +10,8 @@ let mysqlState = {
     currentStep: 'databases', // 'databases', 'tables', 'questions'
     currentSchema: null,
     multiTableSchema: null, // Schema for multiple tables
+    tableRelationships: {}, // Store table relationships for highlighting
+    availableTables: [], // Store all available tables
     tableViewState: {
         currentPage: 1,
         perPage: 10,
@@ -241,6 +243,14 @@ async function loadTables(database) {
         const result = await response.json();
         
         if (result.success && result.tables.length > 0) {
+            // Store available tables for relationship analysis
+            mysqlState.availableTables = result.tables;
+            
+            // Load relationship information for all tables if in multi-table mode
+            if (mysqlState.multiTableMode) {
+                await loadTableRelationships(database, result.tables.map(t => t.name));
+            }
+            
             displayTables(result.tables);
         } else {
             tableGrid.innerHTML = `
@@ -636,25 +646,6 @@ function updatePaginationControls(pagination) {
 }
 
 // Multi-table Functions
-function setTableMode(isMultiMode) {
-    mysqlState.multiTableMode = isMultiMode;
-    mysqlState.selectedTables = [];
-    
-    // Update UI
-    singleTableMode.classList.toggle('active', !isMultiMode);
-    multiTableModeBtn.classList.toggle('active', isMultiMode);
-    
-    // Hide/show multi-table info
-    selectedTablesInfo.style.display = isMultiMode ? 'block' : 'none';
-    continueMultiTable.style.display = 'none';
-    
-    // Reload tables with new mode
-    if (mysqlState.selectedDatabase) {
-        loadTables(mysqlState.selectedDatabase);
-    }
-    
-    updateSelectedTablesDisplay();
-}
 
 function handleTableSelection(event, table) {
     const checkbox = event.target;
@@ -675,6 +666,8 @@ function handleTableSelection(event, table) {
         }
     }
     
+    // Update relationship highlighting
+    updateRelationshipHighlighting();
     updateSelectedTablesDisplay();
 }
 
@@ -896,4 +889,115 @@ async function handleQuestionSubmitMultiTable(e) {
         // Single table mode - use existing function
         return handleQuestionSubmit(e);
     }
+}
+
+// Relationship highlighting functions
+async function loadTableRelationships(database, tableNames) {
+    try {
+        // Get all possible relationships by testing all table combinations
+        const tablesParam = tableNames.join(',');
+        const response = await fetch(`/api/mysql/multi-schema/${database}?tables=${tablesParam}`);
+        const result = await response.json();
+        
+        if (result.success && result.schema.relationships) {
+            // Build relationship map
+            mysqlState.tableRelationships = {};
+            
+            result.schema.relationships.forEach(rel => {
+                // Add bidirectional relationships
+                if (!mysqlState.tableRelationships[rel.from_table]) {
+                    mysqlState.tableRelationships[rel.from_table] = new Set();
+                }
+                if (!mysqlState.tableRelationships[rel.to_table]) {
+                    mysqlState.tableRelationships[rel.to_table] = new Set();
+                }
+                
+                mysqlState.tableRelationships[rel.from_table].add(rel.to_table);
+                mysqlState.tableRelationships[rel.to_table].add(rel.from_table);
+            });
+        }
+    } catch (error) {
+        console.log('Could not load relationship information:', error.message);
+    }
+}
+
+function updateRelationshipHighlighting() {
+    if (!mysqlState.multiTableMode || mysqlState.selectedTables.length === 0) {
+        // Clear all relationship highlighting
+        document.querySelectorAll('.table-item').forEach(item => {
+            item.classList.remove('has-relationship');
+            const tooltip = item.querySelector('.relationship-tooltip');
+            if (tooltip) {
+                tooltip.remove();
+            }
+        });
+        return;
+    }
+    
+    // Get all related tables for currently selected tables
+    const relatedTables = new Set();
+    const relationshipDetails = {};
+    
+    mysqlState.selectedTables.forEach(selectedTable => {
+        if (mysqlState.tableRelationships[selectedTable]) {
+            mysqlState.tableRelationships[selectedTable].forEach(relatedTable => {
+                if (!mysqlState.selectedTables.includes(relatedTable)) {
+                    relatedTables.add(relatedTable);
+                    if (!relationshipDetails[relatedTable]) {
+                        relationshipDetails[relatedTable] = new Set();
+                    }
+                    relationshipDetails[relatedTable].add(selectedTable);
+                }
+            });
+        }
+    });
+    
+    // Update all table items
+    document.querySelectorAll('.table-item').forEach(item => {
+        const tableName = item.dataset.tableName;
+        
+        // Remove existing relationship highlighting and tooltips
+        item.classList.remove('has-relationship');
+        const existingTooltip = item.querySelector('.relationship-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        
+        // Add relationship highlighting if this table is related to selected tables
+        if (relatedTables.has(tableName)) {
+            item.classList.add('has-relationship');
+            
+            // Create relationship tooltip
+            const relatedToTables = Array.from(relationshipDetails[tableName]);
+            const tooltip = document.createElement('div');
+            tooltip.className = 'relationship-tooltip';
+            tooltip.textContent = `Related to: ${relatedToTables.join(', ')}`;
+            item.appendChild(tooltip);
+        }
+    });
+}
+
+function setTableMode(isMultiMode) {
+    mysqlState.multiTableMode = isMultiMode;
+    mysqlState.selectedTables = [];
+    
+    // Update UI
+    singleTableMode.classList.toggle('active', !isMultiMode);
+    multiTableModeBtn.classList.toggle('active', isMultiMode);
+    
+    // Hide/show multi-table info
+    selectedTablesInfo.style.display = isMultiMode ? 'block' : 'none';
+    continueMultiTable.style.display = 'none';
+    
+    // Clear relationship highlighting when switching modes
+    if (!isMultiMode) {
+        updateRelationshipHighlighting();
+    }
+    
+    // Reload tables with new mode
+    if (mysqlState.selectedDatabase) {
+        loadTables(mysqlState.selectedDatabase);
+    }
+    
+    updateSelectedTablesDisplay();
 }
