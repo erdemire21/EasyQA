@@ -1,4 +1,4 @@
-# Utilities package for the iberlef-presta-itunlp project
+# Utilities package 
 
 from .pipeline import run_pipeline
 from .data_loading import load_schemas, load_questions
