@@ -107,6 +107,82 @@ body {
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
+/* Source Selection */
+.source-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-top: 20px;
+}
+
+.source-option {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border: 2px solid #e5e7eb;
+    border-radius: 15px;
+    padding: 30px 25px;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.source-option:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+}
+
+.source-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.source-option h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #374151;
+    margin: 15px 0 10px 0;
+}
+
+.source-option p {
+    color: #6b7280;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    margin-bottom: 20px;
+}
+
+.source-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.source-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.source-btn.selected {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.source-btn.mysql-btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.source-btn.mysql-btn:hover {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
 /* Dataset Grid */
 .dataset-grid {
     display: grid;

@@ -62,8 +62,34 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Data Source Selection -->
+            <div class="card source-selection-card">
+                <h2 class="card-title">
+                    <span class="card-icon">🔗</span>
+                    Choose Data Source
+                </h2>
+                <div class="source-options">
+                    <div class="source-option" id="fileSourceOption">
+                        <div class="source-icon">📁</div>
+                        <h3>File Upload</h3>
+                        <p>Upload and analyze local datasets (.csv, .parquet, .json, .xlsx)</p>
+                        <button class="source-btn selected" id="selectFileSource">
+                            <i class="fas fa-check"></i> Selected
+                        </button>
+                    </div>
+                    <div class="source-option" id="mysqlSourceOption">
+                        <div class="source-icon">🗄️</div>
+                        <h3>MySQL Database</h3>
+                        <p>Connect to MySQL databases and query tables directly</p>
+                        <a href="/mysql" class="source-btn mysql-btn">
+                            <i class="fas fa-external-link-alt"></i> Connect to MySQL
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             <!-- Dataset Selection -->
-            <div class="card dataset-card">
+            <div class="card dataset-card" id="datasetCard">
                 <h2 class="card-title">
                     <span class="card-icon">📊</span>
                     Select Dataset

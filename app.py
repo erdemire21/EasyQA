@@ -13,6 +13,8 @@ from utilities.code_execution import capture_exec_output
 from utilities.code_processing import clean_pandas_code, modify_dataset_paths
 from utilities.data_loading import read_dataset
 from utilities.data_preprocessing import preprocess_dataset, save_preprocessed_dataset
+from utilities.mysql_handler import MySQLHandler
+from utilities.sql_agents import generate_sql_query
 from dotenv import load_dotenv, set_key
 from pathlib import Path
 
@@ -28,6 +30,11 @@ templates = Jinja2Templates(directory="templates")
 class QuestionRequest(BaseModel):
     question: str
     dataset: str
+
+class MySQLQuestionRequest(BaseModel):
+    question: str
+    database: str
+    table: str
 
 class QuestionResponse(BaseModel):
     answer: str
@@ -202,6 +209,11 @@ async def read_root(request: Request):
         "request": request, 
         "datasets": datasets
     })
+
+@app.get("/mysql", response_class=HTMLResponse)
+async def mysql_page(request: Request):
+    """MySQL database connection and querying interface."""
+    return templates.TemplateResponse("mysql.html", {"request": request})
 
 @app.get("/api/datasets")
 async def get_datasets():
@@ -505,6 +517,121 @@ async def view_dataset(request: Request, dataset_name: str, page: int = 1, per_p
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error viewing dataset: {str(e)}")
+
+# MySQL API Endpoints
+@app.get("/api/mysql/test-connection")
+async def test_mysql_connection():
+    """Test MySQL connection."""
+    try:
+        mysql_handler = MySQLHandler()
+        success, message = mysql_handler.test_connection()
+        return {"success": success, "message": message}
+    except Exception as e:
+        return {"success": False, "message": f"Connection test failed: {str(e)}"}
+
+@app.get("/api/mysql/databases")
+async def get_mysql_databases():
+    """Get list of available MySQL databases."""
+    try:
+        mysql_handler = MySQLHandler()
+        databases = mysql_handler.get_databases()
+        return {"success": True, "databases": databases}
+    except Exception as e:
+        return {"success": False, "message": str(e), "databases": []}
+
+@app.get("/api/mysql/tables/{database_name}")
+async def get_mysql_tables(database_name: str):
+    """Get list of tables in a specific database."""
+    try:
+        mysql_handler = MySQLHandler()
+        tables = mysql_handler.get_tables(database_name)
+        return {"success": True, "tables": tables}
+    except Exception as e:
+        return {"success": False, "message": str(e), "tables": []}
+
+@app.get("/api/mysql/schema/{database_name}/{table_name}")
+async def get_mysql_table_schema(database_name: str, table_name: str):
+    """Get detailed schema for a specific table."""
+    try:
+        mysql_handler = MySQLHandler()
+        schema = mysql_handler.get_table_schema(table_name, database_name)
+        return {"success": True, "schema": schema}
+    except Exception as e:
+        return {"success": False, "message": str(e), "schema": {}}
+
+@app.post("/api/mysql/ask")
+async def ask_mysql_question(mysql_request: MySQLQuestionRequest):
+    """Process a question about MySQL data."""
+    try:
+        if not mysql_request.question.strip():
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        
+        # Initialize MySQL handler and connect to database
+        mysql_handler = MySQLHandler()
+        mysql_handler.connect_to_database(mysql_request.database)
+        
+        # Get table schema for context
+        schema = mysql_handler.get_table_schema(mysql_request.table, mysql_request.database)
+        
+        # Generate SQL query using the dedicated SQL agent
+        sql_code = generate_sql_query(
+            question=mysql_request.question,
+            database_name=mysql_request.database,
+            table_name=mysql_request.table,
+            table_schema=schema
+        )
+        
+        # Execute the SQL query
+        df = mysql_handler.execute_query(sql_code)
+        
+        # Format the result intelligently
+        if df.empty:
+            answer = "No results found for your query."
+        else:
+            # Check if it's a simple single-value result (like COUNT, SUM, AVG)
+            if len(df) == 1 and len(df.columns) == 1:
+                # For single value results, just return the clean value
+                value = df.iloc[0, 0]
+                if pd.isna(value):
+                    answer = "NULL"
+                else:
+                    # Format numbers nicely
+                    if isinstance(value, (int, float)):
+                        if isinstance(value, float) and value.is_integer():
+                            answer = str(int(value))
+                        else:
+                            answer = str(value)
+                    else:
+                        answer = str(value)
+            # Check if it's a simple single-column result
+            elif len(df.columns) == 1 and len(df) <= 10:
+                # For single column results, show values without column header
+                values = df.iloc[:, 0].tolist()
+                answer = "\n".join(str(v) if not pd.isna(v) else "NULL" for v in values)
+            # For multi-column or larger results, show with headers
+            elif len(df) <= 10:
+                answer = df.to_string(index=False)
+            else:
+                answer = f"Found {len(df)} results. Here are the first 10:\n\n"
+                answer += df.head(10).to_string(index=False)
+                answer += f"\n\n... and {len(df) - 10} more rows."
+        
+        mysql_handler.close_connection()
+        
+        return {
+            "success": True,
+            "answer": answer,
+            "code": sql_code,
+            "rows_returned": len(df)
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error processing question: {str(e)}",
+            "answer": "",
+            "code": ""
+        }
 
 if __name__ == "__main__":
     import uvicorn
