@@ -1030,4 +1030,73 @@ html {
         transform: translateX(0);
         opacity: 1;
     }
-} 
+}
+
+/* MySQL Structured Result Styles */
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 0.9rem;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.result-table th {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    font-weight: 600;
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 2px solid #fff;
+}
+
+.result-table td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #374151;
+}
+
+.result-table tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.result-table tr:hover {
+    background-color: #f3f4f6;
+}
+
+.result-table td:empty::after {
+    content: "—";
+    color: #9ca3af;
+}
+
+.result-list {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.result-list li {
+    padding: 12px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #374151;
+    transition: background-color 0.2s ease;
+}
+
+.result-list li:last-child {
+    border-bottom: none;
+}
+
+.result-list li:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.result-list li:hover {
+    background-color: #f3f4f6;
+}
