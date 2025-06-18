@@ -504,8 +504,11 @@ function showMySQLResults(result) {
     // Use answer_display for UI if available, otherwise fall back to answer
     const displayAnswer = result.answer_display || result.answer;
     
-    // Format the display answer for better presentation
-    if (typeof result.answer === 'object' && result.answer !== null) {
+    // Check if this is a "Found X results. First Y:" format string
+    const parsedResult = parseFoundResultsFormat(displayAnswer);
+    if (parsedResult) {
+        mysqlAnswerBox.innerHTML = formatFoundResults(parsedResult);
+    } else if (typeof result.answer === 'object' && result.answer !== null) {
         // For structured data (arrays, objects), display in a more readable format
         if (Array.isArray(result.answer)) {
             if (result.answer.length > 0 && typeof result.answer[0] === 'object') {
@@ -565,6 +568,69 @@ function formatSimpleArray(data) {
     return '<ul class="result-list">' + 
            data.map(item => `<li>${item !== null && item !== undefined ? item : 'null'}</li>`).join('') + 
            '</ul>';
+}
+
+function parseFoundResultsFormat(text) {
+    if (typeof text !== 'string') return null;
+    
+    // Match pattern like "Found 24 results. First 10: [{'Name': 'Rock', ...}]"
+    const pattern = /^Found\s+(\d+)\s+results?\.\s*(?:First\s+(\d+):\s*)?\[(.*)\]$/;
+    const match = text.match(pattern);
+    
+    if (!match) return null;
+    
+    const totalFound = parseInt(match[1]);
+    const firstCount = match[2] ? parseInt(match[2]) : totalFound;
+    const dataString = match[3];
+    
+    try {
+        // Parse the array of objects from the string
+        const dataArray = eval(`[${dataString}]`);
+        
+        return {
+            totalFound,
+            firstCount,
+            data: dataArray,
+            hasMore: totalFound > firstCount
+        };
+    } catch (error) {
+        console.warn('Could not parse found results format:', error);
+        return null;
+    }
+}
+
+function formatFoundResults(parsedResult) {
+    const { totalFound, firstCount, data, hasMore } = parsedResult;
+    
+    // Create summary header
+    let html = '<div class="found-results-container">';
+    html += '<div class="found-results-summary">';
+    html += `<div class="summary-badge">`;
+    html += `<i class="fas fa-search"></i> `;
+    html += `Found <strong>${totalFound.toLocaleString()}</strong> result${totalFound !== 1 ? 's' : ''}`;
+    if (hasMore) {
+        html += ` (showing first <strong>${firstCount}</strong>)`;
+    }
+    html += '</div>';
+    html += '</div>';
+    
+    // Format the data as a table
+    if (data && data.length > 0) {
+        html += '<div class="found-results-data">';
+        html += formatArrayOfObjects(data);
+        html += '</div>';
+        
+        if (hasMore) {
+            html += '<div class="found-results-note">';
+            html += `<i class="fas fa-info-circle"></i> `;
+            html += `Showing ${firstCount} of ${totalFound.toLocaleString()} total results. `;
+            html += 'Refine your query for more specific results.';
+            html += '</div>';
+        }
+    }
+    
+    html += '</div>';
+    return html;
 }
 
 function showError(message) {
