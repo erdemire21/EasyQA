@@ -796,6 +796,24 @@
                         Ask Your Question
                     </h2>
                     
+                    <!-- Approach Selection -->
+                    <div class="approach-selection" style="margin-bottom: 20px;">
+                        <label style="font-weight: 600; color: #374151; margin-bottom: 10px; display: block;">
+                            <i class="fas fa-cogs"></i> Analysis Approach:
+                        </label>
+                        <div class="approach-buttons" style="display: flex; gap: 10px;">
+                            <button type="button" class="btn btn-outline-primary approach-btn active" id="sqlApproach" data-approach="sql">
+                                <i class="fas fa-database"></i> SQL Query
+                            </button>
+                            <button type="button" class="btn btn-outline-primary approach-btn" id="pandasApproach" data-approach="pandas">
+                                <i class="fas fa-chart-line"></i> Pandas Analysis
+                            </button>
+                        </div>
+                        <div class="approach-info" style="margin-top: 8px; font-size: 0.85rem; color: #6b7280;">
+                            <span id="approachDescription">Direct SQL execution on database</span>
+                        </div>
+                    </div>
+                    
                     <div class="mysql-context" id="mysqlContext">
                         Connected to: <strong id="contextInfo">database.table</strong>
                     </div>
@@ -830,11 +848,14 @@
                     </div>
                     <div class="code-section">
                         <div class="code-header">
-                            <h3>Generated SQL Query:</h3>
-                            <button class="toggle-code" id="mysqlToggleCode">
-                                <i class="fas fa-code"></i>
-                                <span>Show Code</span>
-                            </button>
+                            <h3 id="codeHeaderTitle">Generated SQL Query:</h3>
+                            <div class="code-header-info">
+                                <span class="approach-badge" id="approachBadge" style="background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; margin-right: 10px;">SQL</span>
+                                <button class="toggle-code" id="mysqlToggleCode">
+                                    <i class="fas fa-code"></i>
+                                    <span>Show Code</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="code-box" id="mysqlCodeBox" style="display: none;"></div>
                     </div>

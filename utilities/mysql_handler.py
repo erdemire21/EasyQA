@@ -10,6 +10,9 @@ from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Dict, Optional, Tuple
 from dotenv import load_dotenv
+import tempfile
+import shutil
+from pathlib import Path
 
 # Load environment variables
 load_dotenv()
@@ -331,4 +334,108 @@ class MySQLHandler:
         if self.engine:
             self.engine.dispose()
             self.engine = None
-            self.current_database = None 
+            self.current_database = None
+    
+    def create_table_snapshot(self, table_name: str, output_dir: str = "datasets") -> str:
+        """Create a temporary parquet snapshot of a MySQL table."""
+        if not self.engine:
+            raise Exception("No database connection established")
+        
+        try:
+            # Create output directory if it doesn't exist
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
+            
+            # Generate unique filename
+            snapshot_filename = f"{self.current_database}_{table_name}.parquet"
+            snapshot_path = os.path.join(output_dir, snapshot_filename)
+            
+            # Load all data from the table
+            query = f"SELECT * FROM `{table_name}`"
+            df = pd.read_sql(query, self.engine)
+            
+            # Save as parquet
+            df.to_parquet(snapshot_path, index=False)
+            
+            return snapshot_path
+        except Exception as e:
+            raise Exception(f"Failed to create snapshot for table '{table_name}': {str(e)}")
+    
+    def create_multi_table_snapshots(self, table_names: List[str], output_dir: str = "datasets") -> Dict[str, str]:
+        """Create temporary parquet snapshots for multiple MySQL tables."""
+        if not self.engine:
+            raise Exception("No database connection established")
+        
+        snapshots = {}
+        try:
+            for table_name in table_names:
+                snapshot_path = self.create_table_snapshot(table_name, output_dir)
+                snapshots[table_name] = snapshot_path
+            
+            return snapshots
+        except Exception as e:
+            # Cleanup any created files on error
+            for path in snapshots.values():
+                if os.path.exists(path):
+                    os.remove(path)
+            raise Exception(f"Failed to create snapshots: {str(e)}")
+    
+    def generate_parquet_schema(self, table_name: str, parquet_path: str) -> str:
+        """Generate schema string for a parquet file (similar to main page schema generation)."""
+        try:
+            # Load the parquet file to analyze
+            df = pd.read_parquet(parquet_path)
+            
+            # Get basic info
+            row_count = len(df)
+            column_count = len(df.columns)
+            
+            schema_lines = [
+                f"Dataset: {table_name}",
+                f"Shape: {row_count} rows, {column_count} columns",
+                f"File: {os.path.basename(parquet_path)}",
+                ""
+            ]
+            
+            # Analyze each column
+            for col in df.columns:
+                dtype = str(df[col].dtype)
+                unique_count = df[col].nunique()
+                
+                # Get example values (limit to avoid long strings)
+                example_values = []
+                non_null_values = df[col].dropna()
+                if len(non_null_values) > 0:
+                    samples = non_null_values.head(5).astype(str).tolist()
+                    for val in samples:
+                        if len(val) > 50:
+                            val = val[:47] + "..."
+                        example_values.append(val)
+                
+                example_str = ", ".join(example_values) if example_values else "No examples"
+                
+                # Format similar to pandas schema
+                schema_line = (f"Column Name: {col}, Data type -- {dtype}, "
+                             f"-- Example values: {example_str}, Total unique elements: {unique_count}")
+                schema_lines.append(schema_line)
+            
+            return "\n".join(schema_lines)
+        except Exception as e:
+            raise Exception(f"Failed to generate schema for {parquet_path}: {str(e)}")
+    
+    def generate_multi_table_parquet_schema(self, table_snapshots: Dict[str, str]) -> str:
+        """Generate combined schema for multiple parquet files."""
+        try:
+            schema_parts = []
+            
+            schema_parts.append(f"Multi-table dataset with {len(table_snapshots)} tables:")
+            schema_parts.append("")
+            
+            for table_name, parquet_path in table_snapshots.items():
+                table_schema = self.generate_parquet_schema(table_name, parquet_path)
+                schema_parts.append(f"=== TABLE: {table_name} ===")
+                schema_parts.append(table_schema)
+                schema_parts.append("")
+            
+            return "\n".join(schema_parts)
+        except Exception as e:
+            raise Exception(f"Failed to generate multi-table schema: {str(e)}") 

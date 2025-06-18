@@ -8,7 +8,7 @@ import json
 import os
 import asyncio
 from typing import Optional, List, Dict, Any
-from utilities.agents import get_pandas_code
+from utilities.agents import get_pandas_code, get_mysql_pandas_code
 from utilities.code_execution import capture_exec_output
 from utilities.code_processing import clean_pandas_code, modify_dataset_paths
 from utilities.data_loading import read_dataset
@@ -29,6 +29,9 @@ app = FastAPI(title="Easy-QA Dataset Question Answering", version="1.0.0")
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+# Global state for MySQL approach
+mysql_approach = "sql"  # "sql" or "pandas"
 
 class QuestionRequest(BaseModel):
     question: str
@@ -689,100 +692,116 @@ async def get_mysql_multi_table_schema(database_name: str, tables: str):
 
 @app.post("/api/mysql/ask")
 async def ask_mysql_question(mysql_request: MySQLQuestionRequest):
-    """Process a question about MySQL data."""
-    try:
-        if not mysql_request.question.strip():
-            raise HTTPException(status_code=400, detail="Question cannot be empty")
-        
-        # Initialize MySQL handler and connect to database
-        mysql_handler = MySQLHandler()
-        mysql_handler.connect_to_database(mysql_request.database)
-        
-        # Get table schema for context
-        schema = mysql_handler.get_table_schema(mysql_request.table, mysql_request.database)
-        
-        # Generate SQL query using the dedicated SQL agent
-        sql_code = generate_sql_query(
-            question=mysql_request.question,
-            database_name=mysql_request.database,
-            table_name=mysql_request.table,
-            table_schema=schema
-        )
-        
-        # Execute the SQL query
-        df = mysql_handler.execute_query(sql_code)
-        
-        # Format the result to match pandas structured output
-        structured_answer = format_mysql_result_structured(df, mysql_request.question)
-        
-        mysql_handler.close_connection()
-        
-        return {
-            "success": True,
-            "answer": structured_answer,  # This will now be native Python types
-            "code": sql_code,
-            "rows_returned": len(df),
-            "answer_display": str(structured_answer)  # For UI display
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "message": f"Error processing question: {str(e)}",
-            "answer": "",
-            "code": ""
-        }
+    """Process a question about MySQL data. Routes to SQL or pandas approach based on global setting."""
+    global mysql_approach
+    
+    if mysql_approach == "pandas":
+        return await ask_mysql_question_pandas(mysql_request)
+    else:
+        # Original SQL approach
+        try:
+            if not mysql_request.question.strip():
+                raise HTTPException(status_code=400, detail="Question cannot be empty")
+            
+            # Initialize MySQL handler and connect to database
+            mysql_handler = MySQLHandler()
+            mysql_handler.connect_to_database(mysql_request.database)
+            
+            # Get table schema for context
+            schema = mysql_handler.get_table_schema(mysql_request.table, mysql_request.database)
+            
+            # Generate SQL query using the dedicated SQL agent
+            sql_code = generate_sql_query(
+                question=mysql_request.question,
+                database_name=mysql_request.database,
+                table_name=mysql_request.table,
+                table_schema=schema
+            )
+            
+            # Execute the SQL query
+            df = mysql_handler.execute_query(sql_code)
+            
+            # Format the result to match pandas structured output
+            structured_answer = format_mysql_result_structured(df, mysql_request.question)
+            
+            mysql_handler.close_connection()
+            
+            return {
+                "success": True,
+                "answer": structured_answer,  # This will now be native Python types
+                "code": sql_code,
+                "rows_returned": len(df),
+                "answer_display": str(structured_answer),  # For UI display
+                "approach": "sql"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Error processing question: {str(e)}",
+                "answer": "",
+                "code": "",
+                "approach": "sql"
+            }
 
 @app.post("/api/mysql/ask-multi")
 async def ask_mysql_multi_table_question(mysql_request: MySQLMultiTableQuestionRequest):
-    """Process a question about multiple MySQL tables."""
-    try:
-        if not mysql_request.question.strip():
-            raise HTTPException(status_code=400, detail="Question cannot be empty")
-        
-        if not mysql_request.tables:
-            raise HTTPException(status_code=400, detail="At least one table must be specified")
-        
-        # Initialize MySQL handler and connect to database
-        mysql_handler = MySQLHandler()
-        mysql_handler.connect_to_database(mysql_request.database)
-        
-        # Get multi-table schema for context
-        schema = mysql_handler.get_multi_table_schema(mysql_request.tables, mysql_request.database)
-        
-        # Generate SQL query using the dedicated SQL agent with multi-table context
-        sql_code = generate_multi_table_sql_query(
-            question=mysql_request.question,
-            database_name=mysql_request.database,
-            table_names=mysql_request.tables,
-            multi_table_schema=schema
-        )
-        
-        # Execute the SQL query
-        df = mysql_handler.execute_query(sql_code)
-        
-        # Format the result to match pandas structured output
-        structured_answer = format_mysql_result_structured(df, mysql_request.question)
-        
-        mysql_handler.close_connection()
-        
-        return {
-            "success": True,
-            "answer": structured_answer,  # This will now be native Python types
-            "code": sql_code,
-            "rows_returned": len(df),
-            "tables_used": mysql_request.tables,
-            "answer_display": str(structured_answer)  # For UI display
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "message": f"Error processing multi-table question: {str(e)}",
-            "answer": "",
-            "code": "",
-            "tables_used": mysql_request.tables if hasattr(mysql_request, 'tables') else []
-        }
+    """Process a question about multiple MySQL tables. Routes to SQL or pandas approach based on global setting."""
+    global mysql_approach
+    
+    if mysql_approach == "pandas":
+        return await ask_mysql_multi_table_question_pandas(mysql_request)
+    else:
+        # Original SQL approach
+        try:
+            if not mysql_request.question.strip():
+                raise HTTPException(status_code=400, detail="Question cannot be empty")
+            
+            if not mysql_request.tables:
+                raise HTTPException(status_code=400, detail="At least one table must be specified")
+            
+            # Initialize MySQL handler and connect to database
+            mysql_handler = MySQLHandler()
+            mysql_handler.connect_to_database(mysql_request.database)
+            
+            # Get multi-table schema for context
+            schema = mysql_handler.get_multi_table_schema(mysql_request.tables, mysql_request.database)
+            
+            # Generate SQL query using the dedicated SQL agent with multi-table context
+            sql_code = generate_multi_table_sql_query(
+                question=mysql_request.question,
+                database_name=mysql_request.database,
+                table_names=mysql_request.tables,
+                multi_table_schema=schema
+            )
+            
+            # Execute the SQL query
+            df = mysql_handler.execute_query(sql_code)
+            
+            # Format the result to match pandas structured output
+            structured_answer = format_mysql_result_structured(df, mysql_request.question)
+            
+            mysql_handler.close_connection()
+            
+            return {
+                "success": True,
+                "answer": structured_answer,  # This will now be native Python types
+                "code": sql_code,
+                "rows_returned": len(df),
+                "tables_used": mysql_request.tables,
+                "answer_display": str(structured_answer),  # For UI display
+                "approach": "sql"
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Error processing multi-table question: {str(e)}",
+                "answer": "",
+                "code": "",
+                "tables_used": mysql_request.tables if hasattr(mysql_request, 'tables') else [],
+                "approach": "sql"
+            }
 
 def format_mysql_result_structured(df: pd.DataFrame, question: str) -> Any:
     """
@@ -860,6 +879,132 @@ def format_mysql_result_structured(df: pd.DataFrame, question: str) -> Any:
         else:
             # For larger results, return a summary
             return f"Found {len(result)} results. First 10: {result[:10]}"
+
+@app.get("/api/mysql/approach")
+async def get_mysql_approach():
+    """Get current MySQL approach (sql or pandas)."""
+    return {"approach": mysql_approach}
+
+@app.post("/api/mysql/approach")
+async def set_mysql_approach(request: dict):
+    """Set MySQL approach (sql or pandas)."""
+    global mysql_approach
+    approach = request.get("approach", "sql")
+    if approach not in ["sql", "pandas"]:
+        raise HTTPException(status_code=400, detail="Approach must be 'sql' or 'pandas'")
+    mysql_approach = approach
+    return {"success": True, "approach": mysql_approach}
+
+@app.post("/api/mysql/ask-pandas")
+async def ask_mysql_question_pandas(mysql_request: MySQLQuestionRequest):
+    """Process a question about MySQL data using pandas approach with temporary snapshots."""
+    try:
+        if not mysql_request.question.strip():
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        
+        # Initialize MySQL handler and connect to database
+        mysql_handler = MySQLHandler()
+        mysql_handler.connect_to_database(mysql_request.database)
+        
+        # Create temporary snapshot
+        snapshot_path = mysql_handler.create_table_snapshot(mysql_request.table)
+        
+        try:
+            # Generate schema for the parquet file
+            schema = mysql_handler.generate_parquet_schema(mysql_request.table, snapshot_path)
+            
+            # Generate pandas code using the new agent
+            table_snapshots = {mysql_request.table: snapshot_path}
+            pandas_code = get_mysql_pandas_code(
+                question=mysql_request.question,
+                schema=schema,
+                table_snapshots=table_snapshots
+            )
+            
+            # Execute the pandas code
+            result = capture_exec_output(pandas_code)
+            
+            mysql_handler.close_connection()
+            
+            return {
+                "success": True,
+                "answer": result,
+                "code": pandas_code,
+                "approach": "pandas",
+                "snapshot_used": os.path.basename(snapshot_path)
+            }
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(snapshot_path):
+                os.remove(snapshot_path)
+                
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error processing question: {str(e)}",
+            "answer": "",
+            "code": "",
+            "approach": "pandas"
+        }
+
+@app.post("/api/mysql/ask-multi-pandas")
+async def ask_mysql_multi_table_question_pandas(mysql_request: MySQLMultiTableQuestionRequest):
+    """Process a question about multiple MySQL tables using pandas approach with temporary snapshots."""
+    try:
+        if not mysql_request.question.strip():
+            raise HTTPException(status_code=400, detail="Question cannot be empty")
+        
+        if not mysql_request.tables:
+            raise HTTPException(status_code=400, detail="At least one table must be specified")
+        
+        # Initialize MySQL handler and connect to database
+        mysql_handler = MySQLHandler()
+        mysql_handler.connect_to_database(mysql_request.database)
+        
+        # Create temporary snapshots for all tables
+        table_snapshots = mysql_handler.create_multi_table_snapshots(mysql_request.tables)
+        
+        try:
+            # Generate combined schema for all parquet files
+            schema = mysql_handler.generate_multi_table_parquet_schema(table_snapshots)
+            
+            # Generate pandas code using the new agent
+            pandas_code = get_mysql_pandas_code(
+                question=mysql_request.question,
+                schema=schema,
+                table_snapshots=table_snapshots
+            )
+            
+            # Execute the pandas code
+            result = capture_exec_output(pandas_code)
+            
+            mysql_handler.close_connection()
+            
+            return {
+                "success": True,
+                "answer": result,
+                "code": pandas_code,
+                "approach": "pandas",
+                "tables_used": mysql_request.tables,
+                "snapshots_used": [os.path.basename(path) for path in table_snapshots.values()]
+            }
+            
+        finally:
+            # Clean up temporary files
+            for snapshot_path in table_snapshots.values():
+                if os.path.exists(snapshot_path):
+                    os.remove(snapshot_path)
+                    
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error processing multi-table question: {str(e)}",
+            "answer": "",
+            "code": "",
+            "approach": "pandas",
+            "tables_used": mysql_request.tables if hasattr(mysql_request, 'tables') else []
+        }
 
 if __name__ == "__main__":
     import uvicorn

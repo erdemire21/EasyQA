@@ -1100,3 +1100,53 @@ html {
 .result-list li:hover {
     background-color: #f3f4f6;
 }
+
+/* MySQL Approach Selection Styles */
+.approach-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #e5e7eb;
+    color: #6b7280;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.approach-btn:hover {
+    border-color: #667eea;
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.approach-btn.active {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: #667eea;
+    color: white;
+}
+
+.approach-btn.active:hover {
+    background: linear-gradient(135deg, #5b6bd8, #6940a5);
+    transform: translateY(-1px);
+}
+
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.code-header-info {
+    display: flex;
+    align-items: center;
+}
+
+.approach-badge {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}

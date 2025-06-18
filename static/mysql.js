@@ -12,6 +12,7 @@ let mysqlState = {
     multiTableSchema: null, // Schema for multiple tables
     tableRelationships: {}, // Store table relationships for highlighting
     availableTables: [], // Store all available tables
+    currentApproach: 'sql', // 'sql' or 'pandas'
     tableViewState: {
         currentPage: 1,
         perPage: 10,
@@ -42,6 +43,11 @@ const mysqlSubmitBtn = document.querySelector('.mysql-submit-btn');
 const mysqlBtnText = mysqlSubmitBtn.querySelector('.btn-text');
 const mysqlBtnSpinner = mysqlSubmitBtn.querySelector('.btn-spinner');
 
+// Approach selection elements
+const sqlApproach = document.getElementById('sqlApproach');
+const pandasApproach = document.getElementById('pandasApproach');
+const approachDescription = document.getElementById('approachDescription');
+
 // Results elements
 const mysqlResultsCard = document.getElementById('mysqlResultsCard');
 const mysqlErrorCard = document.getElementById('mysqlErrorCard');
@@ -69,6 +75,7 @@ const continueMultiTable = document.getElementById('continueMultiTable');
 document.addEventListener('DOMContentLoaded', function() {
     initializeMySQLInterface();
     setupEventListeners();
+    loadCurrentApproach();
 });
 
 async function initializeMySQLInterface() {
@@ -518,6 +525,9 @@ function showMySQLResults(result) {
     }
     
     mysqlCodeBox.textContent = result.code;
+    
+    // Update approach indicator
+    updateResultsForApproach(result);
     
     mysqlResultsCard.style.display = 'block';
     mysqlErrorCard.style.display = 'none';
@@ -1057,3 +1067,78 @@ function setTableMode(isMultiMode) {
     
     updateSelectedTablesDisplay();
 }
+
+// Approach Management Functions
+async function loadCurrentApproach() {
+    try {
+        const response = await fetch('/api/mysql/approach');
+        const result = await response.json();
+        mysqlState.currentApproach = result.approach;
+        updateApproachUI();
+    } catch (error) {
+        console.log('Could not load current approach:', error.message);
+        mysqlState.currentApproach = 'sql';
+        updateApproachUI();
+    }
+}
+
+async function setApproach(approach) {
+    try {
+        const response = await fetch('/api/mysql/approach', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ approach: approach })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            mysqlState.currentApproach = approach;
+            updateApproachUI();
+        }
+    } catch (error) {
+        console.error('Failed to set approach:', error.message);
+    }
+}
+
+function updateApproachUI() {
+    // Update button states
+    document.querySelectorAll('.approach-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    if (mysqlState.currentApproach === 'sql') {
+        sqlApproach.classList.add('active');
+        approachDescription.textContent = 'Direct SQL execution on database';
+    } else {
+        pandasApproach.classList.add('active');
+        approachDescription.textContent = 'Create data snapshots and use pandas analysis';
+    }
+}
+
+function updateResultsForApproach(result) {
+    // Update code header and badge based on approach
+    const codeHeaderTitle = document.getElementById('codeHeaderTitle');
+    const approachBadge = document.getElementById('approachBadge');
+    
+    if (result.approach === 'pandas') {
+        codeHeaderTitle.textContent = 'Generated Pandas Code:';
+        approachBadge.textContent = 'PANDAS';
+        approachBadge.style.background = '#10b981';
+    } else {
+        codeHeaderTitle.textContent = 'Generated SQL Query:';
+        approachBadge.textContent = 'SQL';
+        approachBadge.style.background = '#667eea';
+    }
+}
+
+// Add event listeners for approach buttons
+document.addEventListener('DOMContentLoaded', function() {
+    if (sqlApproach) {
+        sqlApproach.addEventListener('click', () => setApproach('sql'));
+    }
+    if (pandasApproach) {
+        pandasApproach.addEventListener('click', () => setApproach('pandas'));
+    }
+});
