@@ -494,11 +494,67 @@ function updateSubmitButton() {
 }
 
 function showMySQLResults(result) {
-    mysqlAnswerBox.innerHTML = result.answer;
+    // Use answer_display for UI if available, otherwise fall back to answer
+    const displayAnswer = result.answer_display || result.answer;
+    
+    // Format the display answer for better presentation
+    if (typeof result.answer === 'object' && result.answer !== null) {
+        // For structured data (arrays, objects), display in a more readable format
+        if (Array.isArray(result.answer)) {
+            if (result.answer.length > 0 && typeof result.answer[0] === 'object') {
+                // Array of objects - display as a table
+                mysqlAnswerBox.innerHTML = formatArrayOfObjects(result.answer);
+            } else {
+                // Simple array - display as list
+                mysqlAnswerBox.innerHTML = formatSimpleArray(result.answer);
+            }
+        } else {
+            // Single object
+            mysqlAnswerBox.innerHTML = `<pre>${JSON.stringify(result.answer, null, 2)}</pre>`;
+        }
+    } else {
+        // Simple values (strings, numbers, booleans)
+        mysqlAnswerBox.innerHTML = String(displayAnswer);
+    }
+    
     mysqlCodeBox.textContent = result.code;
     
     mysqlResultsCard.style.display = 'block';
     mysqlErrorCard.style.display = 'none';
+}
+
+function formatArrayOfObjects(data) {
+    if (!data || data.length === 0) return 'No data';
+    
+    const columns = Object.keys(data[0]);
+    let html = '<table class="result-table"><thead><tr>';
+    
+    // Create header
+    columns.forEach(col => {
+        html += `<th>${col}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    
+    // Create rows
+    data.forEach(row => {
+        html += '<tr>';
+        columns.forEach(col => {
+            const value = row[col];
+            html += `<td>${value !== null && value !== undefined ? value : ''}</td>`;
+        });
+        html += '</tr>';
+    });
+    
+    html += '</tbody></table>';
+    return html;
+}
+
+function formatSimpleArray(data) {
+    if (!data || data.length === 0) return 'No data';
+    
+    return '<ul class="result-list">' + 
+           data.map(item => `<li>${item !== null && item !== undefined ? item : 'null'}</li>`).join('') + 
+           '</ul>';
 }
 
 function showError(message) {

@@ -1,13 +1,13 @@
 from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 import pandas as pd
 import json
 import os
 import asyncio
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from utilities.agents import get_pandas_code
 from utilities.code_execution import capture_exec_output
 from utilities.code_processing import clean_pandas_code, modify_dataset_paths
@@ -19,6 +19,7 @@ from dotenv import load_dotenv, set_key
 from pathlib import Path
 from sqlalchemy import text
 import datetime
+import numpy as np
 
 # Load environment variables
 load_dotenv()
@@ -711,45 +712,17 @@ async def ask_mysql_question(mysql_request: MySQLQuestionRequest):
         # Execute the SQL query
         df = mysql_handler.execute_query(sql_code)
         
-        # Format the result intelligently
-        if df.empty:
-            answer = "No results found for your query."
-        else:
-            # Check if it's a simple single-value result (like COUNT, SUM, AVG)
-            if len(df) == 1 and len(df.columns) == 1:
-                # For single value results, just return the clean value
-                value = df.iloc[0, 0]
-                if pd.isna(value):
-                    answer = "NULL"
-                else:
-                    # Format numbers nicely
-                    if isinstance(value, (int, float)):
-                        if isinstance(value, float) and value.is_integer():
-                            answer = str(int(value))
-                        else:
-                            answer = str(value)
-                    else:
-                        answer = str(value)
-            # Check if it's a simple single-column result
-            elif len(df.columns) == 1 and len(df) <= 10:
-                # For single column results, show values without column header
-                values = df.iloc[:, 0].tolist()
-                answer = "\n".join(str(v) if not pd.isna(v) else "NULL" for v in values)
-            # For multi-column or larger results, show with headers
-            elif len(df) <= 10:
-                answer = df.to_string(index=False)
-            else:
-                answer = f"Found {len(df)} results. Here are the first 10:\n\n"
-                answer += df.head(10).to_string(index=False)
-                answer += f"\n\n... and {len(df) - 10} more rows."
+        # Format the result to match pandas structured output
+        structured_answer = format_mysql_result_structured(df, mysql_request.question)
         
         mysql_handler.close_connection()
         
         return {
             "success": True,
-            "answer": answer,
+            "answer": structured_answer,  # This will now be native Python types
             "code": sql_code,
-            "rows_returned": len(df)
+            "rows_returned": len(df),
+            "answer_display": str(structured_answer)  # For UI display
         }
         
     except Exception as e:
@@ -788,46 +761,18 @@ async def ask_mysql_multi_table_question(mysql_request: MySQLMultiTableQuestionR
         # Execute the SQL query
         df = mysql_handler.execute_query(sql_code)
         
-        # Format the result intelligently (same as single table)
-        if df.empty:
-            answer = "No results found for your query."
-        else:
-            # Check if it's a simple single-value result (like COUNT, SUM, AVG)
-            if len(df) == 1 and len(df.columns) == 1:
-                # For single value results, just return the clean value
-                value = df.iloc[0, 0]
-                if pd.isna(value):
-                    answer = "NULL"
-                else:
-                    # Format numbers nicely
-                    if isinstance(value, (int, float)):
-                        if isinstance(value, float) and value.is_integer():
-                            answer = str(int(value))
-                        else:
-                            answer = str(value)
-                    else:
-                        answer = str(value)
-            # Check if it's a simple single-column result
-            elif len(df.columns) == 1 and len(df) <= 10:
-                # For single column results, show values without column header
-                values = df.iloc[:, 0].tolist()
-                answer = "\n".join(str(v) if not pd.isna(v) else "NULL" for v in values)
-            # For multi-column or larger results, show with headers
-            elif len(df) <= 10:
-                answer = df.to_string(index=False)
-            else:
-                answer = f"Found {len(df)} results. Here are the first 10:\n\n"
-                answer += df.head(10).to_string(index=False)
-                answer += f"\n\n... and {len(df) - 10} more rows."
+        # Format the result to match pandas structured output
+        structured_answer = format_mysql_result_structured(df, mysql_request.question)
         
         mysql_handler.close_connection()
         
         return {
             "success": True,
-            "answer": answer,
+            "answer": structured_answer,  # This will now be native Python types
             "code": sql_code,
             "rows_returned": len(df),
-            "tables_used": mysql_request.tables
+            "tables_used": mysql_request.tables,
+            "answer_display": str(structured_answer)  # For UI display
         }
         
     except Exception as e:
@@ -838,6 +783,83 @@ async def ask_mysql_multi_table_question(mysql_request: MySQLMultiTableQuestionR
             "code": "",
             "tables_used": mysql_request.tables if hasattr(mysql_request, 'tables') else []
         }
+
+def format_mysql_result_structured(df: pd.DataFrame, question: str) -> Any:
+    """
+    Format MySQL DataFrame results to match pandas structured output format.
+    Returns native Python types just like pandas code execution.
+    """
+    if df.empty:
+        return "No results found"
+    
+    # Single value result (like COUNT, SUM, AVG, single answer)
+    if len(df) == 1 and len(df.columns) == 1:
+        value = df.iloc[0, 0]
+        if pd.isna(value):
+            return None
+        
+        # Return native Python types
+        if isinstance(value, (np.integer, int)):
+            return int(value)
+        elif isinstance(value, (np.floating, float)):
+            return float(value)
+        elif isinstance(value, (np.bool_, bool)):
+            return bool(value)
+        else:
+            return str(value)
+    
+    # Single column, multiple rows -> List
+    elif len(df.columns) == 1:
+        values = df.iloc[:, 0].tolist()
+        processed_values = []
+        for v in values:
+            if pd.isna(v):
+                processed_values.append(None)
+            elif isinstance(v, (np.integer, int)):
+                processed_values.append(int(v))
+            elif isinstance(v, (np.floating, float)):
+                processed_values.append(float(v))
+            elif isinstance(v, (np.bool_, bool)):
+                processed_values.append(bool(v))
+            else:
+                processed_values.append(str(v))
+        return processed_values
+    
+    # Multiple columns -> return as structured data
+    else:
+        # For Yes/No questions, try to determine boolean result
+        question_lower = question.lower()
+        yes_no_indicators = ['is there', 'does', 'do', 'are there', 'can', 'will', 'would']
+        
+        if any(indicator in question_lower for indicator in yes_no_indicators):
+            # If it's likely a yes/no question and we have results, return True
+            # If no results, return False
+            return len(df) > 0
+        
+        # For other multi-column results, return as list of dictionaries
+        result = []
+        for _, row in df.iterrows():
+            row_dict = {}
+            for col in df.columns:
+                val = row[col]
+                if pd.isna(val):
+                    row_dict[col] = None
+                elif isinstance(val, (np.integer, int)):
+                    row_dict[col] = int(val)
+                elif isinstance(val, (np.floating, float)):
+                    row_dict[col] = float(val)
+                elif isinstance(val, (np.bool_, bool)):
+                    row_dict[col] = bool(val)
+                else:
+                    row_dict[col] = str(val)
+            result.append(row_dict)
+        
+        # If small result set, return the structured data
+        if len(result) <= 10:
+            return result
+        else:
+            # For larger results, return a summary
+            return f"Found {len(result)} results. First 10: {result[:10]}"
 
 if __name__ == "__main__":
     import uvicorn
